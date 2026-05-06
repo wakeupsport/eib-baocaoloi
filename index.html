@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EIB - Báo cáo lỗi chi nhánh</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{--brand:#005D98;--brand-dark:#003863;--brand-light:#29ABE2;--bg:#f5f7fa;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--danger:#dc2626;--warn:#f59e0b;--ok:#10b981;}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit;font-size:14px}
+
+#loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#003863,#005D98,#29ABE2)}
+.login-box{background:#fff;padding:40px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.2);width:400px}
+.login-box .logo{text-align:center;margin-bottom:20px;font-weight:800;color:#005D98;font-size:26px;letter-spacing:1px}
+.login-box h1{text-align:center;color:#003863;font-size:16px;margin-bottom:24px;font-weight:600}
+.login-box .form-group{margin-bottom:14px}
+.login-box label{display:block;margin-bottom:6px;font-size:13px;color:#6b7280;font-weight:500}
+.login-box input{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px}
+.login-box input:focus{outline:none;border-color:#005D98}
+.login-box button{width:100%;padding:11px;background:#005D98;color:#fff;border:none;border-radius:8px;font-weight:600;font-size:14px;margin-top:8px}
+.login-box button:hover{background:#003863}
+.login-box button.secondary{background:transparent;color:#005D98;border:1px solid #005D98;margin-top:6px}
+.login-box button.secondary:hover{background:#f0f7ff}
+.login-box .msg{font-size:13px;margin-top:8px;text-align:center;min-height:18px;white-space:pre-wrap}
+.login-box .msg.error{color:#dc2626}
+.login-box .msg.info{color:#005D98}
+.login-box .toggle{font-size:12px;color:#6b7280;text-align:center;margin-top:14px}
+.login-box .toggle a{color:#005D98;cursor:pointer;text-decoration:underline}
+
+#app{display:none;min-height:100vh;flex-direction:column}
+.header{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,.04)}
+.header .brand{display:flex;align-items:center;gap:12px}
+.header .brand-text{font-weight:700;color:var(--brand-dark);font-size:15px;line-height:1.2}
+.header .brand-text small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.header .logo-text{font-weight:800;color:#005D98;font-size:22px;letter-spacing:1px}
+.header .user{display:flex;align-items:center;gap:12px;font-size:13px}
+.header .user .role{padding:2px 8px;background:var(--brand);color:#fff;border-radius:12px;font-size:11px;font-weight:600}
+.header .user .role.admin{background:var(--danger)}
+.header button.logout{padding:6px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--muted);font-size:13px}
+.header button.logout:hover{border-color:var(--danger);color:var(--danger)}
+.connection-status{font-size:11px;color:var(--ok);display:flex;align-items:center;gap:4px}
+.connection-status.offline{color:var(--danger)}
+.connection-status::before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor}
+
+.tabs{background:#fff;border-bottom:1px solid var(--border);padding:0 24px;display:flex;gap:4px;overflow-x:auto}
+.tab{padding:14px 20px;border:none;background:transparent;color:var(--muted);font-weight:500;border-bottom:3px solid transparent;white-space:nowrap}
+.tab.active{color:var(--brand);border-bottom-color:var(--brand)}
+.tab:hover{color:var(--brand-dark)}
+
+.main{padding:20px 24px;flex:1}
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px}
+.toolbar h2{color:var(--brand-dark);font-size:18px;font-weight:600}
+.toolbar .actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{padding:8px 14px;border:1px solid var(--border);background:#fff;color:var(--text);border-radius:6px;font-size:13px;font-weight:500}
+.btn:hover{background:#f3f4f6}
+.btn-primary{background:var(--brand);color:#fff;border-color:var(--brand)}
+.btn-primary:hover{background:var(--brand-dark)}
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-danger:hover{opacity:.9}
+
+.table-wrap{background:#fff;border-radius:8px;border:1px solid var(--border);overflow-x:auto;max-height:calc(100vh - 230px)}
+table{border-collapse:collapse;width:max-content;min-width:100%}
+th,td{padding:8px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px}
+th{background:var(--brand-dark);color:#fff;font-weight:600;position:sticky;top:0;z-index:2;white-space:nowrap;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+tr:hover td{background:#f9fafb}
+td input,td select,td textarea{width:100%;padding:6px 8px;border:1px solid transparent;background:transparent;border-radius:4px;font-size:13px}
+td input:focus,td select:focus,td textarea:focus{outline:none;border-color:var(--brand);background:#fff}
+td input:hover,td select:hover{background:#f9fafb;border-color:var(--border)}
+td.readonly{background:#fafbfc;color:var(--muted)}
+td.readonly input{cursor:not-allowed;color:var(--muted)}
+td .multi-tags{display:flex;flex-wrap:wrap;gap:4px;min-height:26px;padding:2px;cursor:pointer}
+td .multi-tags:hover{background:#f3f4f6;border-radius:4px}
+.tag{padding:2px 6px;background:var(--brand-light);color:#fff;border-radius:10px;font-size:11px;display:inline-flex;align-items:center;gap:4px}
+.col-stt{min-width:60px;width:60px}
+.col-date{min-width:120px;width:120px}
+.col-sol{min-width:80px;width:80px}
+.col-dvkd{min-width:160px;width:160px}
+.col-bb{min-width:200px;width:200px}
+.col-nhom{min-width:150px;width:150px}
+.col-cap1{min-width:180px;width:180px}
+.col-cap2{min-width:200px;width:200px}
+.col-text{min-width:200px;width:200px}
+.col-num{min-width:90px;width:90px;text-align:center}
+.col-action{min-width:80px;width:80px;text-align:center}
+
+tr.row-locked td{background:#fafafa}
+tr.row-locked td input,tr.row-locked td select,tr.row-locked td textarea{background:transparent !important;color:#6b7280;cursor:not-allowed;border-color:transparent !important;pointer-events:none}
+tr.row-locked .multi-tags{cursor:not-allowed;pointer-events:none;opacity:.7}
+tr.row-locked .lock-badge{display:inline-block;font-size:9px;background:#9ca3af;color:#fff;padding:1px 5px;border-radius:6px;margin-left:3px;vertical-align:middle}
+.dateinput{width:100%;padding:6px 8px;border:1px solid transparent;background:transparent;border-radius:4px;font-size:13px;font-family:monospace}
+.dateinput:focus{outline:none;border-color:var(--brand);background:#fff}
+.dateinput:hover{background:#f9fafb;border-color:var(--border)}
+
+.risk{padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;display:inline-block}
+.risk-cao{background:#fee2e2;color:#991b1b}
+.risk-trungbinh{background:#fef3c7;color:#92400e}
+.risk-thap{background:#d1fae5;color:#065f46}
+
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.modal-box{background:#fff;border-radius:10px;width:90%;max-width:500px;max-height:80vh;overflow-y:auto;padding:24px}
+.modal-box h3{color:var(--brand-dark);margin-bottom:16px;font-size:16px}
+.modal-box .form-group{margin-bottom:14px}
+.modal-box label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:500}
+.modal-box input,.modal-box select{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.checklist{max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:6px;padding:8px}
+.checklist label{display:flex;align-items:flex-start;gap:8px;padding:6px;cursor:pointer;font-size:13px;color:var(--text);font-weight:400}
+.checklist label:hover{background:#f3f4f6;border-radius:4px}
+.checklist input[type=checkbox]{width:auto;margin-top:2px}
+.checklist .group-label{font-weight:600;color:var(--brand-dark);padding:6px;font-size:12px;text-transform:uppercase;border-bottom:1px solid var(--border);margin-bottom:4px}
+
+.kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px}
+.kpi-card{background:#fff;padding:18px;border-radius:8px;border-left:4px solid var(--brand);box-shadow:0 1px 3px rgba(0,0,0,.05)}
+.kpi-card .label{color:var(--muted);font-size:12px;text-transform:uppercase;font-weight:500;letter-spacing:.5px}
+.kpi-card .value{color:var(--brand-dark);font-size:28px;font-weight:700;margin-top:4px}
+.kpi-card .sub{font-size:11px;color:var(--muted);margin-top:4px}
+.kpi-card.kpi-ok{border-left-color:var(--ok)}
+.kpi-card.kpi-warn{border-left-color:var(--warn)}
+.kpi-card.kpi-danger{border-left-color:var(--danger)}
+
+.chart-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px;margin-bottom:20px}
+.chart-card{background:#fff;padding:18px;border-radius:8px;border:1px solid var(--border)}
+.chart-card h3{color:var(--brand-dark);font-size:14px;margin-bottom:12px;font-weight:600}
+.chart-card canvas{max-height:260px}
+
+.unit-search{background:#fff;padding:18px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px}
+.unit-search h3{color:var(--brand-dark);font-size:14px;margin-bottom:10px}
+.unit-search-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.unit-search input,.unit-search select{padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;flex:1;min-width:200px}
+
+.empty{padding:40px;text-align:center;color:var(--muted);font-style:italic}
+
+.user-list{background:#fff;border-radius:8px;border:1px solid var(--border);overflow:hidden}
+.user-list table{width:100%}
+.user-list th{background:var(--brand-dark);color:#fff}
+.user-list td{padding:10px}
+
+.toast{position:fixed;bottom:24px;right:24px;background:var(--brand-dark);color:#fff;padding:12px 18px;border-radius:8px;font-size:13px;z-index:200;display:none;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.toast.show{display:block}
+.toast.error{background:var(--danger)}
+.toast.success{background:var(--ok)}
+
+#globalErr{display:none;position:fixed;top:10px;left:10px;right:10px;background:#dc2626;color:#fff;padding:12px;border-radius:6px;z-index:9999;font-size:13px;font-family:monospace;white-space:pre-wrap}
+
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid #e5e7eb;border-top-color:var(--brand);border-radius:50%;animation:spin 1s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:14px;color:var(--muted)}
+.loading-screen .spinner{width:32px;height:32px;border-width:3px}
+</style>
+</head>
+<body>
+
+<div id="globalErr"></div>
+
+<div id="bootScreen" class="loading-screen">
+  <div class="spinner"></div>
+  <div>Đang khởi tạo Firebase...</div>
+</div>
+
+<div id="loginScreen" style="display:none">
+  <div class="login-box">
+    <div class="logo">EXIMBANK</div>
+    <h1 id="loginTitle">HỆ THỐNG BÁO CÁO LỖI CHI NHÁNH</h1>
+    <div class="form-group">
+      <label>Email</label>
+      <input type="email" id="loginEmail" autocomplete="email" />
+    </div>
+    <div class="form-group" id="grpName" style="display:none">
+      <label>Họ và tên</label>
+      <input type="text" id="loginName" />
+    </div>
+    <div class="form-group">
+      <label>Mật khẩu</label>
+      <input type="password" id="loginPass" autocomplete="current-password" />
+    </div>
+    <button id="btnLogin" type="button">ĐĂNG NHẬP</button>
+    <button id="btnSignup" class="secondary" type="button" style="display:none">TẠO TÀI KHOẢN</button>
+    <button id="btnReset" class="secondary" type="button" style="display:none">GỬI LINK ĐẶT LẠI MẬT KHẨU</button>
+    <div class="msg" id="loginMsg"></div>
+    <div class="toggle">
+      <span id="modeText">Chưa có tài khoản? </span><a id="toggleMode">Đăng ký</a>
+      <span style="margin:0 8px">·</span><a id="toggleReset">Quên mật khẩu</a>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <div class="header">
+    <div class="brand">
+      <div class="logo-text">EXIMBANK</div>
+      <div class="brand-text">BÁO CÁO LỖI CHI NHÁNH<small>Hệ thống ghi nhận & theo dõi (online)</small></div>
+    </div>
+    <div class="user">
+      <span class="connection-status" id="connStatus">Online</span>
+      <span id="userName"></span>
+      <span class="role" id="userRole"></span>
+      <button class="logout" id="btnLogout">Đăng xuất</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="entry">Nhập liệu</button>
+    <button class="tab" data-tab="report">Báo cáo</button>
+    <button class="tab" data-tab="export">Xuất PDF</button>
+    <button class="tab" data-tab="users" id="tabUsers" style="display:none">Quản lý người dùng</button>
+  </div>
+
+  <div class="main">
+    <div class="tab-content active" id="tab-entry">
+      <div class="toolbar">
+        <h2>Bảng nhập liệu lỗi <span id="recCount" style="font-size:13px;color:var(--muted);font-weight:400;margin-left:8px"></span></h2>
+        <div class="actions">
+          <button class="btn btn-primary" id="btnAddRow">+ TẠO DỮ LIỆU</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="entryTable">
+          <thead>
+            <tr>
+              <th class="col-stt">STT</th>
+              <th class="col-date">Ngày kiểm tra</th>
+              <th class="col-sol">SOL</th>
+              <th class="col-dvkd">ĐVKD</th>
+              <th class="col-bb">Số biên bản</th>
+              <th class="col-nhom">Nhóm lỗi</th>
+              <th class="col-cap1">Nhóm lỗi cấp 1</th>
+              <th class="col-cap2">Nhóm lỗi cấp 2</th>
+              <th class="col-text">Mô tả lỗi</th>
+              <th class="col-num">Mức độ</th>
+              <th class="col-num">Điểm trừ</th>
+              <th class="col-dvkd">Người nhập</th>
+              <th class="col-text">Phối hợp</th>
+              <th class="col-date">Hạn KP</th>
+              <th class="col-date">Ngày HT</th>
+              <th class="col-nhom">Trạng thái</th>
+              <th class="col-text">Bằng chứng</th>
+              <th class="col-cap2">Hạng mục đã KP</th>
+              <th class="col-num">% HT</th>
+              <th class="col-action">Hành động</th>
+            </tr>
+          </thead>
+          <tbody id="entryBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-report">
+      <div class="toolbar"><h2>Báo cáo & Thống kê</h2></div>
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div class="chart-grid">
+        <div class="chart-card"><h3>Phân bổ theo trạng thái</h3><canvas id="chartStatus"></canvas></div>
+        <div class="chart-card"><h3>Đúng hạn vs. Quá hạn</h3><canvas id="chartDeadline"></canvas></div>
+        <div class="chart-card"><h3>Top 10 đơn vị nhiều lỗi</h3><canvas id="chartTopUnits"></canvas></div>
+        <div class="chart-card"><h3>Số lỗi theo nhóm lỗi</h3><canvas id="chartByGroup"></canvas></div>
+      </div>
+      <div class="unit-search">
+        <h3>Thống kê theo đơn vị</h3>
+        <div class="unit-search-row">
+          <input id="searchUnit" placeholder="Tìm nhanh đơn vị (SOL hoặc tên)...">
+          <select id="unitSelect"><option value="">-- Chọn đơn vị --</option></select>
+        </div>
+        <div id="unitStats" style="margin-top:14px"></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-export">
+      <div class="toolbar"><h2>Xuất báo cáo PDF</h2></div>
+      <div style="background:#fff;padding:20px;border-radius:8px;border:1px solid var(--border)">
+        <div style="margin-bottom:16px"><h3 style="font-size:14px;color:var(--brand-dark);margin-bottom:8px">1. Báo cáo TỔNG (toàn bộ đơn vị)</h3>
+          <button class="btn btn-primary" id="btnExportAll">Xuất PDF tổng</button></div>
+        <div style="margin-bottom:16px;padding-top:16px;border-top:1px solid var(--border)"><h3 style="font-size:14px;color:var(--brand-dark);margin-bottom:8px">2. Báo cáo MỘT đơn vị</h3>
+          <select id="exportSingleUnit" style="padding:8px;border:1px solid var(--border);border-radius:6px;min-width:280px;margin-right:8px"></select>
+          <button class="btn btn-primary" id="btnExportSingle">Xuất PDF</button></div>
+        <div style="padding-top:16px;border-top:1px solid var(--border)"><h3 style="font-size:14px;color:var(--brand-dark);margin-bottom:8px">3. Báo cáo NHIỀU đơn vị tùy chọn</h3>
+          <div class="checklist" id="exportMultiList" style="max-height:300px;margin-bottom:10px"></div>
+          <button class="btn btn-primary" id="btnExportMulti">Xuất PDF (đã chọn)</button></div>
+      </div>
+    </div>
+
+    <div class="tab-content" id="tab-users">
+      <div class="toolbar"><h2>Quản lý người dùng (admin)</h2></div>
+      <div class="user-list">
+        <table>
+          <thead><tr><th>Email</th><th>Họ tên</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+          <tbody id="userBody"></tbody>
+        </table>
+      </div>
+      <div style="margin-top:14px;font-size:12px;color:var(--muted);background:#fff;padding:12px;border-radius:6px;border:1px solid var(--border)">
+        <b>Cách thêm user mới:</b> Người dùng mới tự đăng ký bằng nút "Tạo tài khoản" trên màn hình login. Họ sẽ vào với role = staff. Admin xem ở đây để đổi role thành admin hoặc khóa.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="multiModal">
+  <div class="modal-box">
+    <h3 id="multiTitle">Chọn các mục</h3>
+    <div class="checklist" id="multiList"></div>
+    <div class="modal-actions">
+      <button class="btn" data-close="multiModal">Hủy</button>
+      <button class="btn btn-primary" id="btnSaveMulti">Lưu</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+window.addEventListener('error', function(e){
+  var box = document.getElementById('globalErr');
+  if(box){ box.style.display='block'; box.textContent='LỖI: '+(e.message||e); }
+});
+
+// ====== FIREBASE CONFIG ======
+var firebaseConfig = {
+  apiKey: "AIzaSyCVnQ_Hnqh4PwPtafq_OPz9Tv2rBhalh_A",
+  authDomain: "eib-baocaoloi.firebaseapp.com",
+  projectId: "eib-baocaoloi",
+  storageBucket: "eib-baocaoloi.firebasestorage.app",
+  messagingSenderId: "707829084281",
+  appId: "1:707829084281:web:b8348a9f9a58874112e4a8"
+};
+var PRIMARY_ADMIN_EMAIL = "nguyenhieu8187@gmail.com";
+
+firebase.initializeApp(firebaseConfig);
+var auth = firebase.auth();
+var db = firebase.firestore();
+
+// ====== DATA EMBEDDED ======
+var UNITS = [{"sol":"1001","name":"EIB HÀ NỘI"},{"sol":"1002","name":"EIB ĐÀ NẴNG"},{"sol":"1003","name":"EIB CẦN THƠ"},{"sol":"1004","name":"EIB CHỢ LỚN"},{"sol":"1200","name":"EIB KHÁNH HOÀ"},{"sol":"1201","name":"EIB ĐẮK LẮK"},{"sol":"1202","name":"EIB LÂM ĐỒNG"},{"sol":"1203","name":"EIB BẢO LỘC"},{"sol":"1204","name":"EIB ĐÀ LẠT"},{"sol":"1205","name":"EIB ĐỨC TRỌNG"},{"sol":"1206","name":"EIB BUÔN HỒ"},{"sol":"1207","name":"EIB LÊ DUẨN"},{"sol":"1208","name":"EIB KRÔNG PẮC"},{"sol":"1209","name":"EIB PHAN CHU TRINH"},{"sol":"1210","name":"EIB LÊ HỒNG PHONG"},{"sol":"1211","name":"EIB NINH HOÀ"},{"sol":"1212","name":"EIB DIÊN KHÁNH"},{"sol":"1214","name":"EIB BUÔN MA THUỘT"},{"sol":"1500","name":"EIB TÂY ĐÔ"},{"sol":"1501","name":"EIB TIỀN GIANG"},{"sol":"1502","name":"EIB AN GIANG"},{"sol":"1503","name":"EIB LONG AN"},{"sol":"1504","name":"EIB BẠC LIÊU"},{"sol":"1505","name":"EIB KIÊN GIANG"},{"sol":"1506","name":"EIB CHÂU ĐỐC"},{"sol":"1507","name":"EIB TÂN CHÂU"},{"sol":"1508","name":"EIB CÁI RĂNG"},{"sol":"1509","name":"EIB THỐT NỐT"},{"sol":"1510","name":"EIB NINH KIỀU"},{"sol":"1511","name":"EIB CỜ ĐỎ"},{"sol":"1512","name":"EIB AN PHÚ"},{"sol":"1514","name":"EIB NGUYỄN VĂN CỪ"},{"sol":"1515","name":"EIB Ô MÔN"},{"sol":"1516","name":"EIB BÌNH THUỶ"},{"sol":"1517","name":"EIB VĨNH THẠNH"},{"sol":"1518","name":"EIB MỸ THO"},{"sol":"1519","name":"EIB CAI LẬY"},{"sol":"1520","name":"EIB PHÚ TÂN"},{"sol":"1521","name":"EIB CHÂU PHÚ"},{"sol":"1522","name":"EIB LONG XUYÊN"},{"sol":"1523","name":"EIB GIÁ RAI"},{"sol":"1524","name":"EIB HÒN ĐẤT"},{"sol":"1601","name":"EIB QUẢNG NGÃI"},{"sol":"1602","name":"EIB VINH"},{"sol":"1603","name":"EIB HẢI PHÒNG"},{"sol":"1604","name":"EIB HUẾ"},{"sol":"1614","name":"EIB TƯ NGHĨA"},{"sol":"1615","name":"EIB THANH CHƯƠNG"},{"sol":"1616","name":"EIB BẮC VINH"},{"sol":"1617","name":"EIB HƯNG THỊNH"},{"sol":"1618","name":"EIB DIỄN CHÂU"},{"sol":"1619","name":"EIB ĐÔ LƯƠNG"},{"sol":"1620","name":"EIB NAM VINH"},{"sol":"1621","name":"EIB YÊN THÀNH"},{"sol":"1622","name":"EIB THUỶ NGUYÊN"},{"sol":"1623","name":"EIB KCN NOMURA HẢI PHÒNG"},{"sol":"1624","name":"EIB LÊ CHÂN"},{"sol":"1625","name":"EIB BẠCH ĐẰNG"},{"sol":"1626","name":"EIB HƯƠNG THUỶ"},{"sol":"1703","name":"EIB ĐỐNG ĐA"},{"sol":"1800","name":"EIB BÌNH DƯƠNG"},{"sol":"1801","name":"EIB ĐỒNG NAI"},{"sol":"1802","name":"EIB THỦ ĐỨC"},{"sol":"1803","name":"EIB BÀ RỊA-VŨNG TÀU"},{"sol":"1804","name":"EIB LONG KHÁNH"},{"sol":"1805","name":"EIB BÌNH PHƯỚC"},{"sol":"1811","name":"EIB BÌNH MINH"},{"sol":"1812","name":"EIB GIA KIỆM"},{"sol":"1814","name":"EIB LONG THÀNH"},{"sol":"1815","name":"EIB TÂN BIÊN"},{"sol":"1816","name":"EIB BIÊN HOÀ"},{"sol":"1817","name":"EIB TÂN UYÊN"},{"sol":"1818","name":"EIB DĨ AN"},{"sol":"1819","name":"EIB THUẬN AN"},{"sol":"1820","name":"EIB BẾN CÁT"},{"sol":"1821","name":"EIB THUẬN GIAO"},{"sol":"1827","name":"EIB BÀ RỊA"},{"sol":"1828","name":"EIB NGÃI GIAO"},{"sol":"1829","name":"EIB TÂN THÀNH"},{"sol":"1830","name":"EIB LONG ĐIỀN"},{"sol":"1831","name":"EIB VŨNG TÀU"},{"sol":"1832","name":"EIB PHƯỚC BÌNH"},{"sol":"1900","name":"EIB QUẢNG NINH"},{"sol":"1901","name":"EIB QUẢNG NAM"},{"sol":"1902","name":"EIB MÓNG CÁI"},{"sol":"1903","name":"EIB HẠ LONG"},{"sol":"1904","name":"EIB CẨM PHẢ"},{"sol":"1905","name":"EIB QUẢNG YÊN"},{"sol":"1906","name":"EIB UÔNG BÍ"},{"sol":"1907","name":"EIB NAM PHƯỚC"},{"sol":"1908","name":"EIB HỘI AN"},{"sol":"2000","name":"EIB HỒ CHÍ MINH"},{"sol":"2102","name":"EIB TÂN SƠN NHẤT"},{"sol":"2104","name":"EIB QUẬN 3"},{"sol":"2300","name":"EIB BẮC NINH"},{"sol":"2400","name":"EIB BẮC GIANG"},{"sol":"2500","name":"EIB BÌNH ĐỊNH"},{"sol":"2600","name":"EIB ĐỒNG THÁP"}];
+var HIERARCHY = {"Lệch tiền mặt":{"Quỹ chính":{"_muc_do":"Cao"},"Teller":{"_muc_do":"Cao"}},"Hạn mức tồn quỹ":{"VND":{"_muc_do":"Thấp"},"USD":{"_muc_do":"Thấp"}},"Ấn chỉ":{"Quỹ chính":{"_muc_do":"Cao"},"Teller":{"_muc_do":"Cao"}},"Vàng cầm cố":{"Số lượng":{"_muc_do":"Cao"},"Niêm Phong":{"_muc_do":"Trung bình"}},"Tiền KĐTCLT":{"Lựa tiền":{"_muc_do":"Cao"},"Hạch toán":{"_muc_do":"Trung bình"}},"Biểu mẫu":{"Nội quy vào, ra kho tiền":{"_muc_do":"Thấp"},"Nội quy quầy giao dịch tiền mặt":{"_muc_do":"Thấp"},"Áp phích Mẫu tiền KĐTCLT":{"_muc_do":"Thấp"},"Quy định thu, đổi tiền không đủ tiêu chuẩn lưu thông":{"_muc_do":"Thấp"},"Hướng dẫn khách hàng vào quầy giao dịch":{"_muc_do":"Thấp"},"Tem kiểm định, giấy chứng nhận kiểm định cân vàng":{"_muc_do":"Cao"},"Hướng dẫn khách hàng kiểm tra lại tiền trước khi rời khỏi quầy":{"_muc_do":"Thấp"}},"Sổ sách":{"QĐ thành lập Ban quản lý kho":{"_muc_do":"Cao"},"Giấy ủy quyền (Trưởng đơn vị)":{"_muc_do":"Trung bình"},"Giấy ủy quyền (Trưởng kế toán)":{"_muc_do":"Trung bình"},"Thông báo phân công thủ kho":{"_muc_do":"Trung bình"},"Sổ bàn giao chìa khóa kho tiền":{"_muc_do":"Trung bình"},"Sổ theo dõi vào, ra kho tiền":{"_muc_do":"Cao"},"BB gửi chìa khóa kho dự phòng":{"_muc_do":"Cao"},"Bảng kiểm kê ACT":{"_muc_do":"Thấp"},"Sổ theo dõi ACT":{"_muc_do":"Thấp"},"Sổ theo dõi kiểm tra thiết bị đo":{"_muc_do":"Thấp"},"Sổ Lệnh điều chuyển kiêm giao nhận chìa khóa khoang tiền/ két sắt trên xe chở tiền":{"_muc_do":"Thấp"},"Bộ kiểm quỹ cuối ngày":{"_muc_do":"Thấp"},"Phiếu kiểm tra thiết bị an toàn kho":{"_muc_do":"Cao"}},"Thiết bị":{"Thiết bị trong kho":{"Cầu chữa cháy":"Cao","Đầu báo khói":"Cao","Đầu báo nhiệt":"Cao","Nút nhấn khẩn cấp":"Cao","Đầu báo rung":"Cao","Đầu báo hồng ngoại":"Cao","Công tắc từ":"Cao","Camera không bắt buộc":"Cao","Quạt hút":"Cao"},"Thiết bị gian đệm":{"Công tắc từ":"Cao","Camera bắt buộc":"Cao","Đầu báo hồng ngoại":"Cao"},"Thiết bị PCCC":{"Bình CO2":"Cao","Bình bột F8":"Cao"},"Thiết bị ngoài kho":{"Nút báo động nội bộ":"Cao","Nút báo động kết nối Công An":"Trung bình"}},"Test hệ thống":{"Nút báo động":{"_muc_do":"Cao"},"Công tắc từ":{"_muc_do":"Cao"}},"Bảo trì bảo dưỡng":{"Phương án PCCC":{"_muc_do":"Trung bình"},"Biên bản kiểm tra PCCC":{"_muc_do":"Trung bình"},"Biên bản kiểm tra Camera":{"_muc_do":"Trung bình"},"Biên bản bảo dưỡng định kỳ hệ thống báo động":{"_muc_do":"Trung bình"}},"Khác":{"Quản lý chìa khóa cửa kho tiền":{"_muc_do":"Trung bình"},"Ủy quyền ban quản lý kho":{"_muc_do":"Trung bình"},"Biên bản gửi chìa khóa ATM":{"_muc_do":"Trung bình"},"Bảo quản và phân công chìa ATM":{"_muc_do":"Trung bình"},"Công tác bảo quản tiền mặt, tài sản quý, giấy tờ có giá":{"_muc_do":"Trung bình"}}};
+var STATUS_LIST = ["Chưa khắc phục","Đang khắc phục","Đã khắc phục","Khắc phục ngay"];
+var SOL_TO_NAME = {};
+for(var i=0;i<UNITS.length;i++){ SOL_TO_NAME[UNITS[i].sol]=UNITS[i].name; }
+
+// ====== HELPERS ======
+function $(id){ return document.getElementById(id); }
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function escapeAttr(s){ return escapeHtml(s); }
+function removeDiacritics(s){ return String(s==null?'':s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D'); }
+function slugClass(s){ return removeDiacritics(s).toLowerCase().replace(/\s+/g,'').replace(/[^a-z0-9]/g,''); }
+function plusOneMonth(d){
+  if(!d) return '';
+  var p = d.split('-'); if(p.length!==3) return '';
+  var y=parseInt(p[0],10), m=parseInt(p[1],10), day=parseInt(p[2],10);
+  if(!y||!m||!day) return '';
+  var ny=y, nm=m+1; if(nm>12){nm=1;ny++;}
+  var lastDay=new Date(ny,nm,0).getDate();
+  var nd=Math.min(day,lastDay);
+  return ny+'-'+(nm<10?'0':'')+nm+'-'+(nd<10?'0':'')+nd;
+}
+function fmtDate(d){ if(!d) return ''; var p=d.split('-'); return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:d; }
+function parseVNDate(s){
+  s=String(s||'').trim(); if(!s) return '';
+  var m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(!m) return '';
+  var dd=parseInt(m[1],10), mm=parseInt(m[2],10), yy=parseInt(m[3],10);
+  if(dd<1||dd>31||mm<1||mm>12||yy<1900||yy>2100) return '';
+  var t=new Date(yy,mm-1,dd);
+  if(t.getFullYear()!==yy||t.getMonth()!==mm-1||t.getDate()!==dd) return '';
+  return yy+'-'+(mm<10?'0':'')+mm+'-'+(dd<10?'0':'')+dd;
+}
+function maskDateInput(input){
+  var v=input.value.replace(/[^\d]/g,'').slice(0,8);
+  var out='';
+  if(v.length>=1) out=v.slice(0,2);
+  if(v.length>=3) out+='/'+v.slice(2,4);
+  if(v.length>=5) out+='/'+v.slice(4,8);
+  input.value=out;
+}
+function toast(msg,type){
+  var t=$('toast'); t.textContent=msg;
+  t.className='toast show '+(type||'');
+  setTimeout(function(){ t.className='toast'; },2500);
+}
+
+// ====== AUTH STATE ======
+var currentUser = null; // {uid, email, name, role, active}
+var records = [];
+var allUsers = [];
+var unsubRecords = null;
+var unsubUsers = null;
+
+function showBoot(msg){ $('bootScreen').style.display='flex'; $('bootScreen').lastElementChild.textContent=msg||'Đang tải...'; $('loginScreen').style.display='none'; $('app').style.display='none'; }
+function showLogin(){ $('bootScreen').style.display='none'; $('loginScreen').style.display='flex'; $('app').style.display='none'; }
+function showApp(){
+  $('bootScreen').style.display='none'; $('loginScreen').style.display='none'; $('app').style.display='flex';
+  $('userName').textContent = currentUser.name || currentUser.email;
+  var r=$('userRole');
+  r.textContent = currentUser.role==='admin'?'ADMIN':'CTV';
+  r.className = 'role '+(currentUser.role==='admin'?'admin':'');
+  $('tabUsers').style.display = currentUser.role==='admin' ? 'block' : 'none';
+  subscribeRecords();
+  if(currentUser.role==='admin') subscribeUsers();
+}
+
+auth.onAuthStateChanged(function(user){
+  if(user){
+    showBoot('Đang tải hồ sơ...');
+    loadOrCreateProfile(user);
+  } else {
+    if(unsubRecords){ unsubRecords(); unsubRecords=null; }
+    if(unsubUsers){ unsubUsers(); unsubUsers=null; }
+    currentUser = null; records = []; allUsers = [];
+    showLogin();
+  }
+});
+
+function loadOrCreateProfile(user){
+  db.collection('users').doc(user.uid).get().then(function(doc){
+    if(doc.exists){
+      var p=doc.data();
+      if(p.active===false){
+        toast('Tài khoản đã bị khóa, liên hệ admin','error');
+        auth.signOut(); return;
+      }
+      currentUser={uid:user.uid, email:user.email, name:p.name, role:p.role, active:p.active!==false};
+      showApp();
+    } else {
+      // First-time login: create profile
+      var role = (user.email && user.email.toLowerCase()===PRIMARY_ADMIN_EMAIL.toLowerCase()) ? 'admin' : 'staff';
+      var name = (user.displayName || (user.email||'').split('@')[0] || '');
+      db.collection('users').doc(user.uid).set({
+        email: user.email,
+        name: name,
+        role: role,
+        active: true,
+        created_at: firebase.firestore.FieldValue.serverTimestamp()
+      }).then(function(){
+        loadOrCreateProfile(user);
+      }).catch(function(e){
+        showLoginMsg('Lỗi tạo hồ sơ: '+e.message,'error');
+        auth.signOut();
+      });
+    }
+  }).catch(function(e){
+    showLoginMsg('Lỗi đọc hồ sơ: '+e.message,'error');
+  });
+}
+
+// ====== LOGIN UI ======
+var authMode = 'login'; // login | signup | reset
+function showLoginMsg(msg,type){ var m=$('loginMsg'); m.textContent=msg; m.className='msg '+(type||''); }
+function setAuthMode(mode){
+  authMode=mode;
+  $('grpName').style.display = mode==='signup'?'block':'none';
+  $('btnLogin').style.display = mode==='login'?'block':'none';
+  $('btnSignup').style.display = mode==='signup'?'block':'none';
+  $('btnReset').style.display = mode==='reset'?'block':'none';
+  if(mode==='login'){ $('loginTitle').textContent='HỆ THỐNG BÁO CÁO LỖI CHI NHÁNH'; $('modeText').textContent='Chưa có tài khoản? '; $('toggleMode').textContent='Đăng ký'; }
+  if(mode==='signup'){ $('loginTitle').textContent='ĐĂNG KÝ TÀI KHOẢN MỚI'; $('modeText').textContent='Đã có tài khoản? '; $('toggleMode').textContent='Đăng nhập'; }
+  if(mode==='reset'){ $('loginTitle').textContent='ĐẶT LẠI MẬT KHẨU'; $('modeText').textContent='Quay lại '; $('toggleMode').textContent='Đăng nhập'; }
+  showLoginMsg('','');
+}
+function doLogin(){
+  var email=$('loginEmail').value.trim();
+  var pass=$('loginPass').value;
+  if(!email||!pass){ showLoginMsg('Nhập email và mật khẩu','error'); return; }
+  showLoginMsg('Đang đăng nhập...','info');
+  auth.signInWithEmailAndPassword(email,pass).catch(function(e){ showLoginMsg(translateErr(e.code,e.message),'error'); });
+}
+function doSignup(){
+  var email=$('loginEmail').value.trim();
+  var name=$('loginName').value.trim();
+  var pass=$('loginPass').value;
+  if(!email||!pass||!name){ showLoginMsg('Nhập đủ email, tên, mật khẩu','error'); return; }
+  if(pass.length<6){ showLoginMsg('Mật khẩu cần ít nhất 6 ký tự','error'); return; }
+  showLoginMsg('Đang tạo tài khoản...','info');
+  auth.createUserWithEmailAndPassword(email,pass).then(function(cred){
+    return cred.user.updateProfile({displayName:name});
+  }).catch(function(e){ showLoginMsg(translateErr(e.code,e.message),'error'); });
+}
+function doReset(){
+  var email=$('loginEmail').value.trim();
+  if(!email){ showLoginMsg('Nhập email','error'); return; }
+  auth.sendPasswordResetEmail(email).then(function(){
+    showLoginMsg('Đã gửi link đặt lại mật khẩu vào email','info');
+  }).catch(function(e){ showLoginMsg(translateErr(e.code,e.message),'error'); });
+}
+function doLogout(){ auth.signOut(); }
+function translateErr(code,msg){
+  var map={
+    'auth/invalid-email':'Email không hợp lệ',
+    'auth/user-not-found':'Không tìm thấy tài khoản',
+    'auth/wrong-password':'Sai mật khẩu',
+    'auth/invalid-credential':'Sai email hoặc mật khẩu',
+    'auth/email-already-in-use':'Email đã được dùng',
+    'auth/weak-password':'Mật khẩu quá yếu',
+    'auth/network-request-failed':'Lỗi mạng, kiểm tra internet'
+  };
+  return map[code]||msg||'Lỗi: '+code;
+}
+
+// ====== RECORDS REALTIME ======
+function subscribeRecords(){
+  if(unsubRecords) unsubRecords();
+  unsubRecords = db.collection('records').orderBy('created_at','asc').onSnapshot(function(snap){
+    records=[];
+    snap.forEach(function(doc){
+      var d=doc.data(); d.id=doc.id; records.push(d);
+    });
+    $('recCount').textContent='('+records.length+' dòng)';
+    renderTable();
+    if($('tab-report').classList.contains('active')) renderReport();
+    if($('tab-export').classList.contains('active')) renderExport();
+  }, function(err){ toast('Lỗi đọc dữ liệu: '+err.message,'error'); });
+}
+function subscribeUsers(){
+  if(unsubUsers) unsubUsers();
+  unsubUsers = db.collection('users').onSnapshot(function(snap){
+    allUsers=[];
+    snap.forEach(function(doc){ var d=doc.data(); d.uid=doc.id; allUsers.push(d); });
+    if($('tab-users').classList.contains('active')) renderUsers();
+  });
+}
+
+function canEditRec(rec){
+  if(!currentUser) return false;
+  if(currentUser.role==='admin') return true;
+  if(!rec.created_by) return false;
+  return rec.created_by === currentUser.uid;
+}
+
+// ====== ENTRY TAB ======
+function blank(){
+  return {
+    _new: true,
+    created_by: currentUser.uid,
+    created_at: firebase.firestore.FieldValue.serverTimestamp(),
+    nguoi_nhap: currentUser.name || currentUser.email,
+    ngay_kt:'',sol:'',so_bb:'',
+    nhom_loi:'',cap1:[],cap2:[],
+    mo_ta:'',phoi_hop:'',
+    ngay_ht:'',trang_thai:'',
+    bang_chung:'',da_kp:[]
+  };
+}
+function addRow(){
+  var rec = blank();
+  delete rec._new;
+  db.collection('records').add(rec).then(function(){
+    setTimeout(function(){ var w=document.querySelector('.table-wrap'); if(w) w.scrollTop=w.scrollHeight; },200);
+  }).catch(function(e){ toast('Lỗi tạo dòng: '+e.message,'error'); });
+}
+function delRow(id){
+  var rec=null; for(var i=0;i<records.length;i++){ if(records[i].id===id){ rec=records[i]; break; } }
+  if(rec && !canEditRec(rec)){ toast('Bạn không có quyền xóa','error'); return; }
+  if(!confirm('Xóa dòng này?')) return;
+  db.collection('records').doc(id).delete().catch(function(e){ toast('Lỗi xóa: '+e.message,'error'); });
+}
+function updRec(id, field, value){
+  var rec=null; for(var i=0;i<records.length;i++){ if(records[i].id===id){ rec=records[i]; break; } }
+  if(!rec) return;
+  if(!canEditRec(rec)){ toast('Không có quyền','error'); renderTable(); return; }
+  var update={};
+  if(field==='ngay_kt'||field==='ngay_ht'){
+    if(value===''){ update[field]=''; }
+    else {
+      var p=parseVNDate(value);
+      if(!p){ toast('Sai định dạng (dd/mm/yyyy)','error'); renderTable(); return; }
+      update[field]=p;
+    }
+  } else { update[field]=value; }
+  if(field==='nhom_loi'){ update.cap1=[]; update.cap2=[]; update.da_kp=[]; }
+  db.collection('records').doc(id).update(update).catch(function(e){ toast('Lỗi cập nhật: '+e.message,'error'); });
+}
+function dvkdFromSol(sol){ return SOL_TO_NAME[sol]||''; }
+function buildBB(rec, idx){
+  if(!rec.sol||!rec.ngay_kt) return '';
+  var name=dvkdFromSol(rec.sol); if(!name) return '';
+  var clean=name.replace(/^EIB\s*/i,'').trim();
+  clean=removeDiacritics(clean).replace(/\s+/g,'').toLowerCase();
+  clean=clean.charAt(0).toUpperCase()+clean.slice(1);
+  var count=0;
+  for(var i=0;i<=idx;i++){ if(records[i] && records[i].sol===rec.sol) count++; }
+  var xx=(count<10?'0':'')+count;
+  var d=rec.ngay_kt.split('-'); if(d.length!==3) return '';
+  return rec.sol+'-'+clean+'-'+d[2]+d[1]+d[0]+'-'+xx;
+}
+function getRiskAndPoints(rec){
+  var rank={'Cao':3,'Trung bình':2,'Thấp':1}, pts={'Cao':1,'Trung bình':0.5,'Thấp':0};
+  var max='', maxR=0;
+  if(!rec.nhom_loi) return {risk:'',pt:''};
+  var grp=HIERARCHY[rec.nhom_loi]; if(!grp) return {risk:'',pt:''};
+  var risks=[];
+  (rec.cap1||[]).forEach(function(c1){
+    if(!grp[c1]) return;
+    if('_muc_do' in grp[c1]) risks.push(grp[c1]._muc_do);
+    else if(rec.cap2 && rec.cap2.length){
+      Object.keys(grp[c1]).forEach(function(c2){ if(rec.cap2.indexOf(c2)!==-1) risks.push(grp[c1][c2]); });
+    } else { Object.keys(grp[c1]).forEach(function(k){ risks.push(grp[c1][k]); }); }
+  });
+  risks.forEach(function(r){ var v=rank[r]||0; if(v>maxR){ maxR=v; max=r; } });
+  return {risk:max, pt: max?pts[max]:''};
+}
+function calcPercent(rec){
+  if(rec.trang_thai==='Đã khắc phục') return 100;
+  if(rec.trang_thai==='Khắc phục ngay') return 100;
+  if(rec.trang_thai==='Chưa khắc phục') return 0;
+  if(rec.trang_thai==='Đang khắc phục'){
+    var total=(rec.cap2||[]).length>0 ? rec.cap2.length : (rec.cap1||[]).length;
+    var done=(rec.da_kp||[]).length;
+    return total===0?0:Math.round(done/total*100);
+  }
+  return '';
+}
+function renderTable(){
+  var body=$('entryBody');
+  body.innerHTML='';
+  if(!records.length){ body.innerHTML='<tr><td colspan="20" class="empty">Chưa có dữ liệu. Bấm <b>+ TẠO DỮ LIỆU</b>.</td></tr>'; return; }
+  for(var idx=0; idx<records.length; idx++){
+    var r=records[idx];
+    var so_bb=buildBB(r,idx); var rp=getRiskAndPoints(r); var risk=rp.risk, pt=rp.pt;
+    var han=plusOneMonth(r.ngay_kt); var pct=calcPercent(r);
+    var optsSol='<option value="">--</option>';
+    for(var u=0;u<UNITS.length;u++) optsSol+='<option value="'+UNITS[u].sol+'"'+(UNITS[u].sol===r.sol?' selected':'')+'>'+UNITS[u].sol+'</option>';
+    var optsNhom='<option value="">--</option>';
+    Object.keys(HIERARCHY).forEach(function(k){ optsNhom+='<option'+(r.nhom_loi===k?' selected':'')+'>'+escapeHtml(k)+'</option>'; });
+    var optsTrang='<option value="">--</option>';
+    STATUS_LIST.forEach(function(s){ optsTrang+='<option'+(r.trang_thai===s?' selected':'')+'>'+escapeHtml(s)+'</option>'; });
+    var cap1Html=(r.cap1||[]).length?(r.cap1).map(function(c){return '<span class="tag">'+escapeHtml(c)+'</span>';}).join(''):'<i style="color:#9ca3af">Bấm chọn</i>';
+    var cap2Html=(r.cap2||[]).length?(r.cap2).map(function(c){return '<span class="tag">'+escapeHtml(c)+'</span>';}).join(''):'<i style="color:#9ca3af">Bấm chọn</i>';
+    var dakpHtml=(r.da_kp||[]).length?(r.da_kp).map(function(c){return '<span class="tag">'+escapeHtml(c)+'</span>';}).join(''):'<i style="color:#9ca3af">Bấm chọn</i>';
+    var sttStr=(idx+1<10?'0':'')+(idx+1);
+    var canEdit=canEditRec(r);
+    var lockBadge=canEdit?'':' <span class="lock-badge" title="Dòng người khác">VIEW</span>';
+    var delBtn=canEdit?'<button class="btn btn-danger" style="padding:4px 8px;font-size:11px" data-del="'+r.id+'">Xóa</button>':'<span style="color:#9ca3af;font-size:11px">—</span>';
+    var tr=document.createElement('tr');
+    if(!canEdit) tr.className='row-locked';
+    tr.innerHTML=
+      '<td class="readonly col-stt">'+sttStr+lockBadge+'</td>'+
+      '<td class="col-date"><input type="text" class="dateinput" placeholder="dd/mm/yyyy" maxlength="10" value="'+fmtDate(r.ngay_kt)+'" data-id="'+r.id+'" data-field="ngay_kt" data-mask="date"></td>'+
+      '<td class="col-sol"><select data-id="'+r.id+'" data-field="sol">'+optsSol+'</select></td>'+
+      '<td class="readonly col-dvkd">'+escapeHtml(dvkdFromSol(r.sol))+'</td>'+
+      '<td class="readonly col-bb">'+(so_bb||'<i style="color:#9ca3af">Chọn SOL & ngày</i>')+'</td>'+
+      '<td class="col-nhom"><select data-id="'+r.id+'" data-field="nhom_loi">'+optsNhom+'</select></td>'+
+      '<td class="col-cap1"><div class="multi-tags" data-multi="cap1" data-id="'+r.id+'">'+cap1Html+'</div></td>'+
+      '<td class="col-cap2"><div class="multi-tags" data-multi="cap2" data-id="'+r.id+'">'+cap2Html+'</div></td>'+
+      '<td class="col-text"><textarea rows="2" data-id="'+r.id+'" data-field="mo_ta">'+escapeHtml(r.mo_ta||'')+'</textarea></td>'+
+      '<td class="readonly col-num">'+(risk?'<span class="risk risk-'+slugClass(risk)+'">'+escapeHtml(risk)+'</span>':'')+'</td>'+
+      '<td class="readonly col-num">'+(pt!==''?pt:'')+'</td>'+
+      '<td class="readonly col-dvkd">'+escapeHtml(r.nguoi_nhap||'')+'</td>'+
+      '<td class="col-text"><textarea rows="2" data-id="'+r.id+'" data-field="phoi_hop">'+escapeHtml(r.phoi_hop||'')+'</textarea></td>'+
+      '<td class="readonly col-date">'+fmtDate(han)+'</td>'+
+      '<td class="col-date"><input type="text" class="dateinput" placeholder="dd/mm/yyyy" maxlength="10" value="'+fmtDate(r.ngay_ht)+'" data-id="'+r.id+'" data-field="ngay_ht" data-mask="date"></td>'+
+      '<td class="col-nhom"><select data-id="'+r.id+'" data-field="trang_thai">'+optsTrang+'</select></td>'+
+      '<td class="col-text"><textarea rows="2" data-id="'+r.id+'" data-field="bang_chung">'+escapeHtml(r.bang_chung||'')+'</textarea></td>'+
+      '<td class="col-cap2"><div class="multi-tags" data-multi="da_kp" data-id="'+r.id+'">'+dakpHtml+'</div></td>'+
+      '<td class="readonly col-num">'+(pct!==''?pct+'%':'')+'</td>'+
+      '<td class="col-action">'+delBtn+'</td>';
+    body.appendChild(tr);
+  }
+}
+
+document.addEventListener('change', function(e){
+  var t=e.target;
+  if(t && t.dataset && t.dataset.id && t.dataset.field) updRec(t.dataset.id, t.dataset.field, t.value);
+});
+document.addEventListener('input', function(e){
+  var t=e.target;
+  if(t && t.dataset && t.dataset.mask==='date') maskDateInput(t);
+});
+document.addEventListener('click', function(e){
+  var t=e.target;
+  var m=t.closest?t.closest('.multi-tags'):null;
+  if(m && m.dataset.multi && m.dataset.id){
+    var rec=null; for(var i=0;i<records.length;i++){ if(records[i].id===m.dataset.id){ rec=records[i]; break; } }
+    if(rec && !canEditRec(rec)){ toast('Không có quyền','error'); return; }
+    openMulti(m.dataset.id, m.dataset.multi); return;
+  }
+  if(t && t.dataset && t.dataset.del){ delRow(t.dataset.del); return; }
+  if(t && t.dataset && t.dataset.close){ closeModal(t.dataset.close); return; }
+  if(t && t.dataset && t.dataset.userrole){ promoteUser(t.dataset.userrole, t.dataset.value); return; }
+  if(t && t.dataset && t.dataset.useractive){ toggleActive(t.dataset.useractive, t.dataset.value); return; }
+});
+
+// ====== MULTI MODAL ======
+var multiCtx={recId:'',field:''};
+function openMulti(recId, field){
+  var rec=null; for(var i=0;i<records.length;i++){ if(records[i].id===recId){ rec=records[i]; break; } }
+  if(!rec) return;
+  multiCtx={recId:recId, field:field};
+  var titleMap={cap1:'Chọn nhóm lỗi cấp 1', cap2:'Chọn nhóm lỗi cấp 2', da_kp:'Chọn hạng mục đã khắc phục'};
+  $('multiTitle').textContent=titleMap[field];
+  var html='';
+  if(field==='cap1'){
+    if(!rec.nhom_loi){ html='<div class="empty">Chọn Nhóm lỗi trước.</div>'; }
+    else { Object.keys(HIERARCHY[rec.nhom_loi]||{}).forEach(function(it){
+      html+='<label><input type="checkbox" value="'+escapeAttr(it)+'"'+((rec.cap1||[]).indexOf(it)!==-1?' checked':'')+'>'+escapeHtml(it)+'</label>';
+    }); }
+  } else if(field==='cap2'){
+    if(!(rec.cap1||[]).length){ html='<div class="empty">Chọn cấp 1 trước.</div>'; }
+    else {
+      var any=false;
+      (rec.cap1||[]).forEach(function(c1){
+        var sub=(HIERARCHY[rec.nhom_loi]||{})[c1];
+        if(!sub||'_muc_do' in sub) return;
+        any=true;
+        html+='<div class="group-label">'+escapeHtml(c1)+'</div>';
+        Object.keys(sub).forEach(function(c2){
+          html+='<label><input type="checkbox" value="'+escapeAttr(c2)+'"'+((rec.cap2||[]).indexOf(c2)!==-1?' checked':'')+'>'+escapeHtml(c2)+' <span style="color:#6b7280;font-size:11px;margin-left:auto">['+escapeHtml(sub[c2])+']</span></label>';
+        });
+      });
+      if(!any) html='<div class="empty">Cấp 1 không có cấp 2 con. Bỏ qua.</div>';
+    }
+  } else if(field==='da_kp'){
+    var src=(rec.cap2||[]).length>0 ? rec.cap2 : (rec.cap1||[]);
+    if(!src.length){ html='<div class="empty">Chọn cấp 1/2 trước.</div>'; }
+    else { src.forEach(function(it){ html+='<label><input type="checkbox" value="'+escapeAttr(it)+'"'+((rec.da_kp||[]).indexOf(it)!==-1?' checked':'')+'>'+escapeHtml(it)+'</label>'; }); }
+  }
+  $('multiList').innerHTML=html;
+  $('multiModal').classList.add('show');
+}
+function saveMulti(){
+  var recId=multiCtx.recId, field=multiCtx.field;
+  var rec=null; for(var i=0;i<records.length;i++){ if(records[i].id===recId){ rec=records[i]; break; } }
+  if(!rec){ closeModal('multiModal'); return; }
+  var checks=document.querySelectorAll('#multiList input[type=checkbox]:checked');
+  var arr=[]; for(var c=0;c<checks.length;c++) arr.push(checks[c].value);
+  var update={};
+  update[field]=arr;
+  if(field==='cap1'){ update.cap2=[]; update.da_kp=[]; }
+  if(field==='cap2'){ update.da_kp=[]; }
+  db.collection('records').doc(recId).update(update).then(function(){ closeModal('multiModal'); }).catch(function(e){ toast('Lỗi: '+e.message,'error'); });
+}
+function closeModal(id){ $(id).classList.remove('show'); }
+
+// ====== REPORT ======
+var charts={};
+function renderReport(){
+  var cnt={'Khắc phục ngay':0,'Đã khắc phục':0,'Đang khắc phục':0,'Chưa khắc phục':0};
+  var dungHan=0, quaHan=0;
+  records.forEach(function(r){
+    if(r.trang_thai in cnt) cnt[r.trang_thai]++;
+    if(r.trang_thai==='Đã khắc phục'||r.trang_thai==='Khắc phục ngay'){
+      var han=plusOneMonth(r.ngay_kt);
+      if(r.ngay_ht && han){ if(r.ngay_ht<=han) dungHan++; else quaHan++; }
+    }
+  });
+  var total=records.length, doneSum=cnt['Đã khắc phục']+cnt['Khắc phục ngay'];
+  var tlhh=total?Math.round(doneSum/total*100):0;
+  $('kpiGrid').innerHTML=
+    '<div class="kpi-card"><div class="label">Tổng số lỗi</div><div class="value">'+total+'</div></div>'+
+    '<div class="kpi-card kpi-ok"><div class="label">Khắc phục ngay</div><div class="value">'+cnt['Khắc phục ngay']+'</div></div>'+
+    '<div class="kpi-card kpi-ok"><div class="label">Đã khắc phục</div><div class="value">'+cnt['Đã khắc phục']+'</div></div>'+
+    '<div class="kpi-card kpi-ok"><div class="label">Đã KP + KP ngay</div><div class="value">'+doneSum+'</div><div class="sub">Tỷ lệ '+tlhh+'%</div></div>'+
+    '<div class="kpi-card kpi-warn"><div class="label">Đang khắc phục</div><div class="value">'+cnt['Đang khắc phục']+'</div></div>'+
+    '<div class="kpi-card kpi-danger"><div class="label">Chưa khắc phục</div><div class="value">'+cnt['Chưa khắc phục']+'</div></div>'+
+    '<div class="kpi-card kpi-ok"><div class="label">Đã KP đúng hạn</div><div class="value">'+dungHan+'</div></div>'+
+    '<div class="kpi-card kpi-danger"><div class="label">Đã KP quá hạn</div><div class="value">'+quaHan+'</div></div>';
+  if(typeof Chart!=='undefined'){
+    drawChart('chartStatus','doughnut',{labels:Object.keys(cnt),datasets:[{data:Object.keys(cnt).map(function(k){return cnt[k];}),backgroundColor:['#3b82f6','#10b981','#f59e0b','#dc2626']}]});
+    drawChart('chartDeadline','pie',{labels:['Đúng hạn','Quá hạn'],datasets:[{data:[dungHan,quaHan],backgroundColor:['#10b981','#dc2626']}]});
+    var byUnit={}; records.forEach(function(r){ if(r.sol) byUnit[r.sol]=(byUnit[r.sol]||0)+1; });
+    var sorted=Object.keys(byUnit).map(function(k){return [k,byUnit[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+    drawChart('chartTopUnits','bar',{labels:sorted.map(function(s){return SOL_TO_NAME[s[0]]||s[0];}),datasets:[{label:'Số lỗi',data:sorted.map(function(s){return s[1];}),backgroundColor:'#005D98'}]},{indexAxis:'y'});
+    var byGroup={}; records.forEach(function(r){ if(r.nhom_loi) byGroup[r.nhom_loi]=(byGroup[r.nhom_loi]||0)+1; });
+    drawChart('chartByGroup','bar',{labels:Object.keys(byGroup),datasets:[{label:'Số lỗi',data:Object.keys(byGroup).map(function(k){return byGroup[k];}),backgroundColor:'#29ABE2'}]});
+  }
+  renderUnitSelect();
+}
+function drawChart(id,type,data,opt){
+  if(charts[id]) charts[id].destroy();
+  var ctx=$(id); if(!ctx) return;
+  var options={responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}};
+  if(opt) for(var k in opt) options[k]=opt[k];
+  charts[id]=new Chart(ctx,{type:type,data:data,options:options});
+}
+function renderUnitSelect(){
+  var q=($('searchUnit').value||'').toLowerCase();
+  var sel=$('unitSelect'); var cur=sel.value;
+  var html='<option value="">-- Chọn đơn vị --</option>';
+  UNITS.forEach(function(u){
+    var match=!q||u.sol.indexOf(q)!==-1||removeDiacritics(u.name.toLowerCase()).indexOf(removeDiacritics(q))!==-1;
+    if(match) html+='<option value="'+u.sol+'"'+(u.sol===cur?' selected':'')+'>'+u.sol+' — '+escapeHtml(u.name)+'</option>';
+  });
+  sel.innerHTML=html;
+}
+function renderUnitStats(){
+  var sol=$('unitSelect').value; var div=$('unitStats');
+  if(!sol){ div.innerHTML=''; return; }
+  var recs=records.filter(function(r){return r.sol===sol;});
+  var total=recs.length;
+  var done=recs.filter(function(r){return r.trang_thai==='Đã khắc phục'||r.trang_thai==='Khắc phục ngay';}).length;
+  var doing=recs.filter(function(r){return r.trang_thai==='Đang khắc phục'||r.trang_thai==='Chưa khắc phục';}).length;
+  var tl=total?Math.round(done/total*100):0;
+  div.innerHTML='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:8px"><div class="kpi-card"><div class="label">Tổng</div><div class="value">'+total+'</div></div><div class="kpi-card kpi-ok"><div class="label">Đã KP</div><div class="value">'+done+'</div></div><div class="kpi-card kpi-warn"><div class="label">Chưa/Đang KP</div><div class="value">'+doing+'</div></div><div class="kpi-card kpi-ok"><div class="label">Tỷ lệ HT</div><div class="value">'+tl+'%</div></div></div>';
+}
+
+// ====== EXPORT (print preview) ======
+function renderExport(){
+  var sel=$('exportSingleUnit');
+  var html='<option value="">-- Chọn đơn vị --</option>';
+  UNITS.forEach(function(u){ html+='<option value="'+u.sol+'">'+u.sol+' — '+escapeHtml(u.name)+'</option>'; });
+  sel.innerHTML=html;
+  var usedSols={}; records.forEach(function(r){ if(r.sol) usedSols[r.sol]=true; });
+  var list=$('exportMultiList'); var listHtml='';
+  UNITS.forEach(function(u){ if(usedSols[u.sol]) listHtml+='<label><input type="checkbox" value="'+u.sol+'">'+u.sol+' — '+escapeHtml(u.name)+'</label>'; });
+  list.innerHTML=listHtml||'<div class="empty">Chưa có đơn vị nào có dữ liệu</div>';
+}
+function exportPDF(mode){
+  var filtered=records.slice();
+  var title='BÁO CÁO TỔNG LỖI - TẤT CẢ ĐƠN VỊ', subTitle='Tất cả đơn vị';
+  if(mode==='single'){
+    var sol=$('exportSingleUnit').value;
+    if(!sol){ toast('Chọn đơn vị','error'); return; }
+    filtered=records.filter(function(r){return r.sol===sol;});
+    title='BÁO CÁO LỖI CHI NHÁNH'; subTitle=(SOL_TO_NAME[sol]||'')+' — SOL '+sol;
+  } else if(mode==='multi'){
+    var checks=document.querySelectorAll('#exportMultiList input:checked');
+    var sols=[]; for(var c=0;c<checks.length;c++) sols.push(checks[c].value);
+    if(!sols.length){ toast('Chọn ít nhất 1 đơn vị','error'); return; }
+    filtered=records.filter(function(r){return sols.indexOf(r.sol)!==-1;});
+    title='BÁO CÁO LỖI CHI NHÁNH';
+    subTitle=sols.length+' đơn vị: '+sols.map(function(x){return SOL_TO_NAME[x]||x;}).join(', ');
+  }
+  if(!filtered.length){ toast('Không có dữ liệu','error'); return; }
+  var cnt={'Khắc phục ngay':0,'Đã khắc phục':0,'Đang khắc phục':0,'Chưa khắc phục':0};
+  var dungHan=0,quaHan=0,byUnit={},byGroup={};
+  filtered.forEach(function(r){
+    if(r.trang_thai in cnt) cnt[r.trang_thai]++;
+    if(r.trang_thai==='Đã khắc phục'||r.trang_thai==='Khắc phục ngay'){
+      var han=plusOneMonth(r.ngay_kt);
+      if(r.ngay_ht && han){ if(r.ngay_ht<=han) dungHan++; else quaHan++; }
+    }
+    if(r.sol) byUnit[r.sol]=(byUnit[r.sol]||0)+1;
+    if(r.nhom_loi) byGroup[r.nhom_loi]=(byGroup[r.nhom_loi]||0)+1;
+  });
+  var total=filtered.length, doneSum=cnt['Đã khắc phục']+cnt['Khắc phục ngay'];
+  var tl=total?Math.round(doneSum/total*100):0;
+  var topUnits=Object.keys(byUnit).map(function(k){return [k,byUnit[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
+  var rowsHtml='';
+  filtered.forEach(function(rec,i){
+    var origIdx=-1; for(var oi=0;oi<records.length;oi++){ if(records[oi].id===rec.id){ origIdx=oi; break; } }
+    var so_bb=buildBB(rec,origIdx); var rp=getRiskAndPoints(rec);
+    var han=plusOneMonth(rec.ngay_kt); var pct=calcPercent(rec);
+    rowsHtml+='<tr><td>'+(i+1)+'</td><td>'+fmtDate(rec.ngay_kt)+'</td><td>'+escapeHtml(rec.sol||'')+'</td><td>'+escapeHtml(dvkdFromSol(rec.sol))+'</td><td>'+escapeHtml(so_bb||'')+'</td><td>'+escapeHtml(rec.nhom_loi||'')+'</td><td>'+escapeHtml((rec.cap1||[]).join(', '))+'</td><td>'+escapeHtml((rec.cap2||[]).join(', '))+'</td><td>'+escapeHtml(rec.mo_ta||'')+'</td><td>'+escapeHtml(rp.risk||'')+'</td><td>'+(rp.pt!==''?rp.pt:'')+'</td><td>'+escapeHtml(rec.nguoi_nhap||'')+'</td><td>'+fmtDate(han)+'</td><td>'+fmtDate(rec.ngay_ht)+'</td><td>'+escapeHtml(rec.trang_thai||'')+'</td><td>'+(pct!==''?pct+'%':'')+'</td></tr>';
+  });
+  var now=new Date();
+  var dd=(now.getDate()<10?'0':'')+now.getDate(), mm=(now.getMonth()+1<10?'0':'')+(now.getMonth()+1);
+  var hh=(now.getHours()<10?'0':'')+now.getHours(), mi=(now.getMinutes()<10?'0':'')+now.getMinutes();
+  var dateStr=dd+'/'+mm+'/'+now.getFullYear()+' '+hh+':'+mi;
+  var html='<!DOCTYPE html><html lang="vi"><head><meta charset="UTF-8"><title>'+escapeHtml(title)+'</title>'+
+    '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"><\/script>'+
+    '<style>@page{size:A4 landscape;margin:10mm}body{font-family:"Segoe UI",Roboto,Arial,sans-serif;color:#1f2937;margin:0;padding:20px;font-size:12px}.print-header{border-bottom:3px solid #005D98;padding-bottom:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:flex-end}.print-header h1{color:#005D98;font-size:20px;margin:0 0 4px 0;letter-spacing:1px}.print-header h2{color:#003863;font-size:14px;margin:0;font-weight:500}.print-header .meta{font-size:11px;color:#6b7280;text-align:right}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}.kpi{border:1px solid #e5e7eb;border-left:3px solid #005D98;border-radius:4px;padding:8px}.kpi.ok{border-left-color:#10b981}.kpi.warn{border-left-color:#f59e0b}.kpi.bad{border-left-color:#dc2626}.kpi .lbl{font-size:9px;color:#6b7280;text-transform:uppercase;letter-spacing:.3px;font-weight:500}.kpi .val{font-size:18px;color:#003863;font-weight:700;margin-top:2px}.charts{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;page-break-after:always}.chart-block{border:1px solid #e5e7eb;border-radius:4px;padding:10px}.chart-block h3{color:#003863;font-size:12px;margin:0 0 8px 0;font-weight:600}.chart-block canvas{max-height:200px}h2.section{color:#003863;font-size:14px;margin:14px 0 8px 0;border-bottom:2px solid #29ABE2;padding-bottom:4px}table{width:100%;border-collapse:collapse;font-size:9px}th{background:#003863;color:#fff;padding:6px 4px;text-align:left;font-size:9px;text-transform:uppercase}td{padding:5px 4px;border-bottom:1px solid #e5e7eb;border-right:1px solid #f3f4f6;vertical-align:top}tr:nth-child(even) td{background:#f8fafc}.print-footer{margin-top:14px;padding-top:8px;border-top:1px solid #e5e7eb;font-size:10px;color:#6b7280;display:flex;justify-content:space-between}.actions{position:fixed;top:10px;right:10px;display:flex;gap:8px;z-index:9999}.actions button{padding:8px 14px;border:none;background:#005D98;color:#fff;border-radius:6px;cursor:pointer;font-weight:600;font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.15)}.actions button:hover{background:#003863}.actions .secondary{background:#6b7280}@media print{.actions{display:none}}</style></head><body>'+
+    '<div class="actions"><button onclick="window.print()">In / Lưu PDF (Ctrl+P)</button><button class="secondary" onclick="window.close()">Đóng</button></div>'+
+    '<div class="print-header"><div><h1>'+escapeHtml(title)+'</h1><h2>'+escapeHtml(subTitle)+'</h2></div><div class="meta">Ngày xuất: '+dateStr+'<br>Người xuất: '+escapeHtml(currentUser?currentUser.name||currentUser.email:'')+'</div></div>'+
+    '<div class="kpis"><div class="kpi"><div class="lbl">Tổng số lỗi</div><div class="val">'+total+'</div></div><div class="kpi ok"><div class="lbl">Khắc phục ngay</div><div class="val">'+cnt['Khắc phục ngay']+'</div></div><div class="kpi ok"><div class="lbl">Đã khắc phục</div><div class="val">'+cnt['Đã khắc phục']+'</div></div><div class="kpi ok"><div class="lbl">Tỷ lệ hoàn thành</div><div class="val">'+tl+'%</div></div><div class="kpi warn"><div class="lbl">Đang khắc phục</div><div class="val">'+cnt['Đang khắc phục']+'</div></div><div class="kpi bad"><div class="lbl">Chưa khắc phục</div><div class="val">'+cnt['Chưa khắc phục']+'</div></div><div class="kpi ok"><div class="lbl">Đã KP đúng hạn</div><div class="val">'+dungHan+'</div></div><div class="kpi bad"><div class="lbl">Đã KP quá hạn</div><div class="val">'+quaHan+'</div></div></div>'+
+    '<div class="charts"><div class="chart-block"><h3>Phân bổ trạng thái</h3><canvas id="cStatus"></canvas></div><div class="chart-block"><h3>Đúng hạn vs. Quá hạn</h3><canvas id="cDeadline"></canvas></div><div class="chart-block"><h3>Top 10 đơn vị nhiều lỗi</h3><canvas id="cTopUnits"></canvas></div><div class="chart-block"><h3>Số lỗi theo nhóm</h3><canvas id="cByGroup"></canvas></div></div>'+
+    '<h2 class="section">Chi tiết các lỗi</h2><table><thead><tr><th>STT</th><th>Ngày KT</th><th>SOL</th><th>ĐVKD</th><th>Số biên bản</th><th>Nhóm lỗi</th><th>Cấp 1</th><th>Cấp 2</th><th>Mô tả</th><th>Mức độ</th><th>Điểm</th><th>Người nhập</th><th>Hạn KP</th><th>Ngày HT</th><th>Trạng thái</th><th>% HT</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'+
+    '<div class="print-footer"><span>Hệ thống Báo cáo lỗi chi nhánh Eximbank</span><span>'+dateStr+'</span></div>'+
+    '<script>var DATA='+JSON.stringify({cnt:cnt,dungHan:dungHan,quaHan:quaHan,topUnits:topUnits.map(function(s){return {name:SOL_TO_NAME[s[0]]||s[0],val:s[1]};}),byGroup:byGroup})+';function drawAll(){if(typeof Chart==="undefined"){setTimeout(drawAll,200);return;}new Chart(document.getElementById("cStatus"),{type:"doughnut",data:{labels:Object.keys(DATA.cnt),datasets:[{data:Object.keys(DATA.cnt).map(function(k){return DATA.cnt[k];}),backgroundColor:["#3b82f6","#10b981","#f59e0b","#dc2626"]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{font:{size:10}}}},animation:false}});new Chart(document.getElementById("cDeadline"),{type:"pie",data:{labels:["Đúng hạn","Quá hạn"],datasets:[{data:[DATA.dungHan,DATA.quaHan],backgroundColor:["#10b981","#dc2626"]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{font:{size:10}}}},animation:false}});new Chart(document.getElementById("cTopUnits"),{type:"bar",data:{labels:DATA.topUnits.map(function(t){return t.name;}),datasets:[{label:"Số lỗi",data:DATA.topUnits.map(function(t){return t.val;}),backgroundColor:"#005D98"}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},animation:false}});new Chart(document.getElementById("cByGroup"),{type:"bar",data:{labels:Object.keys(DATA.byGroup),datasets:[{label:"Số lỗi",data:Object.keys(DATA.byGroup).map(function(k){return DATA.byGroup[k];}),backgroundColor:"#29ABE2"}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},animation:false}});}window.addEventListener("load",drawAll);<\/script></body></html>';
+  var w=window.open('','_blank');
+  if(!w){ toast('Trình duyệt chặn popup','error'); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+  toast('Đã mở báo cáo. Bấm In / Lưu PDF','success');
+}
+
+// ====== USERS ADMIN ======
+function renderUsers(){
+  if(currentUser.role!=='admin') return;
+  var html='';
+  allUsers.forEach(function(u){
+    var roleBadge='<span class="role '+(u.role==='admin'?'admin':'')+'">'+(u.role==='admin'?'ADMIN':'CTV')+'</span>';
+    var status=u.active!==false?'<span style="color:#10b981">Hoạt động</span>':'<span style="color:#dc2626">Đã khóa</span>';
+    var actions='';
+    if(u.uid !== currentUser.uid){
+      actions+='<button class="btn" data-userrole="'+u.uid+'" data-value="'+(u.role==='admin'?'staff':'admin')+'">'+(u.role==='admin'?'Hạ Admin':'Lên Admin')+'</button> ';
+      actions+='<button class="btn '+(u.active!==false?'btn-danger':'')+'" data-useractive="'+u.uid+'" data-value="'+(u.active!==false?'false':'true')+'">'+(u.active!==false?'Khóa':'Mở khóa')+'</button>';
+    } else {
+      actions='<i style="color:#9ca3af;font-size:12px">Bản thân</i>';
+    }
+    html+='<tr><td><b>'+escapeHtml(u.email||'')+'</b></td><td>'+escapeHtml(u.name||'')+'</td><td>'+roleBadge+'</td><td>'+status+'</td><td>'+actions+'</td></tr>';
+  });
+  $('userBody').innerHTML=html;
+}
+function promoteUser(uid, newRole){
+  if(currentUser.role!=='admin') return;
+  if(!confirm('Đổi role thành '+newRole+'?')) return;
+  db.collection('users').doc(uid).update({role:newRole}).then(function(){ toast('Đã đổi role','success'); }).catch(function(e){ toast('Lỗi: '+e.message,'error'); });
+}
+function toggleActive(uid, val){
+  if(currentUser.role!=='admin') return;
+  var active = val==='true';
+  if(!confirm(active?'Mở khóa user?':'Khóa user?')) return;
+  db.collection('users').doc(uid).update({active:active}).then(function(){ toast('Đã cập nhật','success'); }).catch(function(e){ toast('Lỗi: '+e.message,'error'); });
+}
+
+// ====== TABS ======
+function switchTab(name){
+  document.querySelectorAll('.tab').forEach(function(t){ t.classList.toggle('active', t.dataset.tab===name); });
+  document.querySelectorAll('.tab-content').forEach(function(c){ c.classList.toggle('active', c.id==='tab-'+name); });
+  if(name==='report') renderReport();
+  if(name==='export') renderExport();
+  if(name==='users') renderUsers();
+}
+
+// ====== EVENTS BIND ======
+$('btnLogin').addEventListener('click', doLogin);
+$('btnSignup').addEventListener('click', doSignup);
+$('btnReset').addEventListener('click', doReset);
+$('btnLogout').addEventListener('click', doLogout);
+$('toggleMode').addEventListener('click', function(){ setAuthMode(authMode==='login'?'signup':'login'); });
+$('toggleReset').addEventListener('click', function(){ setAuthMode('reset'); });
+$('loginPass').addEventListener('keypress', function(e){ if(e.key==='Enter'){ if(authMode==='login') doLogin(); else if(authMode==='signup') doSignup(); else doReset(); } });
+$('loginEmail').addEventListener('keypress', function(e){ if(e.key==='Enter'){ if(authMode==='login') doLogin(); else if(authMode==='signup') doSignup(); else doReset(); } });
+document.querySelectorAll('.tab').forEach(function(t){ t.addEventListener('click', function(){ switchTab(t.dataset.tab); }); });
+$('btnAddRow').addEventListener('click', addRow);
+$('searchUnit').addEventListener('input', renderUnitSelect);
+$('unitSelect').addEventListener('change', renderUnitStats);
+$('btnExportAll').addEventListener('click', function(){ exportPDF('all'); });
+$('btnExportSingle').addEventListener('click', function(){ exportPDF('single'); });
+$('btnExportMulti').addEventListener('click', function(){ exportPDF('multi'); });
+$('btnSaveMulti').addEventListener('click', saveMulti);
+
+window.addEventListener('online', function(){ $('connStatus').textContent='Online'; $('connStatus').className='connection-status'; });
+window.addEventListener('offline', function(){ $('connStatus').textContent='Offline'; $('connStatus').className='connection-status offline'; });
+
+setAuthMode('login');
+</script>
+</body>
+</html>
