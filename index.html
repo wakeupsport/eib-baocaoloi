@@ -70,7 +70,14 @@ input,select,textarea{font-family:inherit;font-size:14px}
 .table-wrap{background:#fff;border-radius:8px;border:1px solid var(--border);overflow-x:auto;max-height:calc(100vh - 230px)}
 table{border-collapse:collapse;width:max-content;min-width:100%}
 th,td{padding:8px 10px;border-bottom:1px solid var(--border);border-right:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px}
-th{background:var(--brand-dark);color:#fff;font-weight:600;position:sticky;top:0;z-index:2;white-space:nowrap;font-size:12px;text-transform:uppercase;letter-spacing:.3px}
+th{background:var(--brand-dark);color:#fff;font-weight:600;position:sticky;top:0;z-index:2;white-space:nowrap;font-size:12px;text-transform:uppercase;letter-spacing:.3px;position:relative;user-select:none}
+th .col-resizer{position:absolute;top:0;right:-3px;width:6px;height:100%;cursor:col-resize;z-index:3;background:transparent}
+th .col-resizer:hover,th .col-resizer.active{background:rgba(255,255,255,.4)}
+td input:focus,td select:focus,td textarea:focus{outline:2px solid var(--brand);outline-offset:-2px;background:#fff !important;box-shadow:0 0 0 2px rgba(0,93,152,.15)}
+.dp-wrap{position:relative;display:flex;align-items:center;gap:2px}
+.dp-icon{cursor:pointer;background:none;border:none;color:var(--muted);padding:2px 4px;font-size:14px;border-radius:3px;flex-shrink:0}
+.dp-icon:hover{background:#e5e7eb;color:var(--brand)}
+.dp-hidden{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none;top:0;left:0}
 tr:hover td{background:#f9fafb}
 td input,td select,td textarea{width:100%;padding:6px 8px;border:1px solid transparent;background:transparent;border-radius:4px;font-size:13px}
 td input:focus,td select:focus,td textarea:focus{outline:none;border-color:var(--brand);background:#fff}
@@ -133,6 +140,22 @@ tr.row-locked .lock-badge{display:inline-block;font-size:9px;background:#9ca3af;
 .chart-card h3{color:var(--brand-dark);font-size:14px;margin-bottom:12px;font-weight:600}
 .chart-card canvas{max-height:260px}
 
+.report-section{background:#fff;padding:18px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px}
+.report-section-title{color:var(--brand-dark);font-size:15px;font-weight:700;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--brand-light)}
+.report-subtabs{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.rsub{padding:8px 14px;border:none;background:transparent;color:var(--muted);font-weight:500;border-bottom:3px solid transparent;font-size:13px;cursor:pointer}
+.rsub.active{color:var(--brand);border-bottom-color:var(--brand)}
+.rsub:hover{color:var(--brand-dark)}
+.unit-picker{background:#f9fafb;padding:12px;border-radius:6px;border:1px solid var(--border)}
+.unit-picker input{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:13px;margin-bottom:8px}
+.rtable{width:100%;border-collapse:collapse;font-size:13px;background:#fff}
+.rtable th{background:var(--brand-dark);color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.3px;position:static}
+.rtable td{padding:7px 10px;border-bottom:1px solid var(--border);border-right:1px solid #f3f4f6}
+.rtable tr.group-row td{background:#f0f7ff;font-weight:600;color:var(--brand-dark)}
+.rtable tr.sub-row td{padding-left:24px}
+.rtable tr.subsub-row td{padding-left:42px;font-size:12px;color:var(--muted)}
+.rtable td.num{text-align:right;font-variant-numeric:tabular-nums}
+.rtable tr.total-row td{background:var(--brand-dark);color:#fff;font-weight:700}
 .unit-search{background:#fff;padding:18px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px}
 .unit-search h3{color:var(--brand-dark);font-size:14px;margin-bottom:10px}
 .unit-search-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
@@ -203,6 +226,7 @@ tr.row-locked .lock-badge{display:inline-block;font-size:9px;background:#9ca3af;
     <div class="user">
       <span class="connection-status" id="connStatus">Online</span>
       <span id="userName"></span>
+      <button class="logout" id="btnEditName" title="Đổi họ tên" style="padding:2px 8px;font-size:11px">✎</button>
       <span class="role" id="userRole"></span>
       <button class="logout" id="btnLogout">Đăng xuất</button>
     </div>
@@ -238,6 +262,7 @@ tr.row-locked .lock-badge{display:inline-block;font-size:9px;background:#9ca3af;
               <th class="col-text">Mô tả lỗi</th>
               <th class="col-num">Mức độ</th>
               <th class="col-num">Điểm trừ</th>
+              <th class="col-nhom">Đề nghị/KN</th>
               <th class="col-dvkd">Người nhập</th>
               <th class="col-text">Phối hợp</th>
               <th class="col-date">Hạn KP</th>
@@ -260,16 +285,37 @@ tr.row-locked .lock-badge{display:inline-block;font-size:9px;background:#9ca3af;
       <div class="chart-grid">
         <div class="chart-card"><h3>Phân bổ theo trạng thái</h3><canvas id="chartStatus"></canvas></div>
         <div class="chart-card"><h3>Đúng hạn vs. Quá hạn</h3><canvas id="chartDeadline"></canvas></div>
-        <div class="chart-card"><h3>Top 10 đơn vị nhiều lỗi</h3><canvas id="chartTopUnits"></canvas></div>
-        <div class="chart-card"><h3>Số lỗi theo nhóm lỗi</h3><canvas id="chartByGroup"></canvas></div>
       </div>
-      <div class="unit-search">
-        <h3>Thống kê theo đơn vị</h3>
-        <div class="unit-search-row">
-          <input id="searchUnit" placeholder="Tìm nhanh đơn vị (SOL hoặc tên)...">
-          <select id="unitSelect"><option value="">-- Chọn đơn vị --</option></select>
+      <div class="report-section">
+        <h3 class="report-section-title">1. Tổng các đơn vị — Phân tích theo nhóm lỗi</h3>
+        <div class="report-subtabs">
+          <button class="rsub active" data-rsub="s1a">A. Tổng số lượng & tỷ lệ</button>
+          <button class="rsub" data-rsub="s1b">B. Đã khắc phục</button>
+          <button class="rsub" data-rsub="s1c">C. Chưa khắc phục</button>
         </div>
-        <div id="unitStats" style="margin-top:14px"></div>
+        <div id="reportS1Body"></div>
+      </div>
+      <div class="report-section">
+        <h3 class="report-section-title">2. Theo đơn vị tùy chọn</h3>
+        <div class="unit-picker">
+          <input id="s2Search" placeholder="Tìm đơn vị (SOL hoặc tên)...">
+          <div class="checklist" id="s2UnitList" style="max-height:160px"></div>
+          <div style="display:flex;gap:8px;margin-top:8px;align-items:center;flex-wrap:wrap">
+            <button class="btn" id="s2SelectAll">Chọn tất cả</button>
+            <button class="btn" id="s2Clear">Bỏ chọn</button>
+            <span style="color:var(--muted);font-size:12px" id="s2Count">0 đơn vị</span>
+          </div>
+        </div>
+        <div class="report-subtabs" style="margin-top:14px">
+          <button class="rsub active" data-rsub="s2a">A. Tổng số lượng & tỷ lệ</button>
+          <button class="rsub" data-rsub="s2b">B. Đã khắc phục</button>
+          <button class="rsub" data-rsub="s2c">C. Chưa khắc phục</button>
+        </div>
+        <div id="reportS2Body"></div>
+      </div>
+      <div class="report-section">
+        <h3 class="report-section-title">3. Báo cáo tổng hợp theo từng đơn vị</h3>
+        <div id="reportS3Body"></div>
       </div>
     </div>
 
@@ -339,7 +385,7 @@ var db = firebase.firestore();
 
 // ====== DATA EMBEDDED ======
 var UNITS = [{"sol":"1001","name":"EIB HÀ NỘI"},{"sol":"1002","name":"EIB ĐÀ NẴNG"},{"sol":"1003","name":"EIB CẦN THƠ"},{"sol":"1004","name":"EIB CHỢ LỚN"},{"sol":"1200","name":"EIB KHÁNH HOÀ"},{"sol":"1201","name":"EIB ĐẮK LẮK"},{"sol":"1202","name":"EIB LÂM ĐỒNG"},{"sol":"1203","name":"EIB BẢO LỘC"},{"sol":"1204","name":"EIB ĐÀ LẠT"},{"sol":"1205","name":"EIB ĐỨC TRỌNG"},{"sol":"1206","name":"EIB BUÔN HỒ"},{"sol":"1207","name":"EIB LÊ DUẨN"},{"sol":"1208","name":"EIB KRÔNG PẮC"},{"sol":"1209","name":"EIB PHAN CHU TRINH"},{"sol":"1210","name":"EIB LÊ HỒNG PHONG"},{"sol":"1211","name":"EIB NINH HOÀ"},{"sol":"1212","name":"EIB DIÊN KHÁNH"},{"sol":"1214","name":"EIB BUÔN MA THUỘT"},{"sol":"1500","name":"EIB TÂY ĐÔ"},{"sol":"1501","name":"EIB TIỀN GIANG"},{"sol":"1502","name":"EIB AN GIANG"},{"sol":"1503","name":"EIB LONG AN"},{"sol":"1504","name":"EIB BẠC LIÊU"},{"sol":"1505","name":"EIB KIÊN GIANG"},{"sol":"1506","name":"EIB CHÂU ĐỐC"},{"sol":"1507","name":"EIB TÂN CHÂU"},{"sol":"1508","name":"EIB CÁI RĂNG"},{"sol":"1509","name":"EIB THỐT NỐT"},{"sol":"1510","name":"EIB NINH KIỀU"},{"sol":"1511","name":"EIB CỜ ĐỎ"},{"sol":"1512","name":"EIB AN PHÚ"},{"sol":"1514","name":"EIB NGUYỄN VĂN CỪ"},{"sol":"1515","name":"EIB Ô MÔN"},{"sol":"1516","name":"EIB BÌNH THUỶ"},{"sol":"1517","name":"EIB VĨNH THẠNH"},{"sol":"1518","name":"EIB MỸ THO"},{"sol":"1519","name":"EIB CAI LẬY"},{"sol":"1520","name":"EIB PHÚ TÂN"},{"sol":"1521","name":"EIB CHÂU PHÚ"},{"sol":"1522","name":"EIB LONG XUYÊN"},{"sol":"1523","name":"EIB GIÁ RAI"},{"sol":"1524","name":"EIB HÒN ĐẤT"},{"sol":"1601","name":"EIB QUẢNG NGÃI"},{"sol":"1602","name":"EIB VINH"},{"sol":"1603","name":"EIB HẢI PHÒNG"},{"sol":"1604","name":"EIB HUẾ"},{"sol":"1614","name":"EIB TƯ NGHĨA"},{"sol":"1615","name":"EIB THANH CHƯƠNG"},{"sol":"1616","name":"EIB BẮC VINH"},{"sol":"1617","name":"EIB HƯNG THỊNH"},{"sol":"1618","name":"EIB DIỄN CHÂU"},{"sol":"1619","name":"EIB ĐÔ LƯƠNG"},{"sol":"1620","name":"EIB NAM VINH"},{"sol":"1621","name":"EIB YÊN THÀNH"},{"sol":"1622","name":"EIB THUỶ NGUYÊN"},{"sol":"1623","name":"EIB KCN NOMURA HẢI PHÒNG"},{"sol":"1624","name":"EIB LÊ CHÂN"},{"sol":"1625","name":"EIB BẠCH ĐẰNG"},{"sol":"1626","name":"EIB HƯƠNG THUỶ"},{"sol":"1703","name":"EIB ĐỐNG ĐA"},{"sol":"1800","name":"EIB BÌNH DƯƠNG"},{"sol":"1801","name":"EIB ĐỒNG NAI"},{"sol":"1802","name":"EIB THỦ ĐỨC"},{"sol":"1803","name":"EIB BÀ RỊA-VŨNG TÀU"},{"sol":"1804","name":"EIB LONG KHÁNH"},{"sol":"1805","name":"EIB BÌNH PHƯỚC"},{"sol":"1811","name":"EIB BÌNH MINH"},{"sol":"1812","name":"EIB GIA KIỆM"},{"sol":"1814","name":"EIB LONG THÀNH"},{"sol":"1815","name":"EIB TÂN BIÊN"},{"sol":"1816","name":"EIB BIÊN HOÀ"},{"sol":"1817","name":"EIB TÂN UYÊN"},{"sol":"1818","name":"EIB DĨ AN"},{"sol":"1819","name":"EIB THUẬN AN"},{"sol":"1820","name":"EIB BẾN CÁT"},{"sol":"1821","name":"EIB THUẬN GIAO"},{"sol":"1827","name":"EIB BÀ RỊA"},{"sol":"1828","name":"EIB NGÃI GIAO"},{"sol":"1829","name":"EIB TÂN THÀNH"},{"sol":"1830","name":"EIB LONG ĐIỀN"},{"sol":"1831","name":"EIB VŨNG TÀU"},{"sol":"1832","name":"EIB PHƯỚC BÌNH"},{"sol":"1900","name":"EIB QUẢNG NINH"},{"sol":"1901","name":"EIB QUẢNG NAM"},{"sol":"1902","name":"EIB MÓNG CÁI"},{"sol":"1903","name":"EIB HẠ LONG"},{"sol":"1904","name":"EIB CẨM PHẢ"},{"sol":"1905","name":"EIB QUẢNG YÊN"},{"sol":"1906","name":"EIB UÔNG BÍ"},{"sol":"1907","name":"EIB NAM PHƯỚC"},{"sol":"1908","name":"EIB HỘI AN"},{"sol":"2000","name":"EIB HỒ CHÍ MINH"},{"sol":"2102","name":"EIB TÂN SƠN NHẤT"},{"sol":"2104","name":"EIB QUẬN 3"},{"sol":"2300","name":"EIB BẮC NINH"},{"sol":"2400","name":"EIB BẮC GIANG"},{"sol":"2500","name":"EIB BÌNH ĐỊNH"},{"sol":"2600","name":"EIB ĐỒNG THÁP"}];
-var HIERARCHY = {"Lệch tiền mặt":{"Quỹ chính":{"_muc_do":"Cao"},"Teller":{"_muc_do":"Cao"}},"Hạn mức tồn quỹ":{"VND":{"_muc_do":"Thấp"},"USD":{"_muc_do":"Thấp"}},"Ấn chỉ":{"Quỹ chính":{"_muc_do":"Cao"},"Teller":{"_muc_do":"Cao"}},"Vàng cầm cố":{"Số lượng":{"_muc_do":"Cao"},"Niêm Phong":{"_muc_do":"Trung bình"}},"Tiền KĐTCLT":{"Lựa tiền":{"_muc_do":"Cao"},"Hạch toán":{"_muc_do":"Trung bình"}},"Biểu mẫu":{"Nội quy vào, ra kho tiền":{"_muc_do":"Thấp"},"Nội quy quầy giao dịch tiền mặt":{"_muc_do":"Thấp"},"Áp phích Mẫu tiền KĐTCLT":{"_muc_do":"Thấp"},"Quy định thu, đổi tiền không đủ tiêu chuẩn lưu thông":{"_muc_do":"Thấp"},"Hướng dẫn khách hàng vào quầy giao dịch":{"_muc_do":"Thấp"},"Tem kiểm định, giấy chứng nhận kiểm định cân vàng":{"_muc_do":"Cao"},"Hướng dẫn khách hàng kiểm tra lại tiền trước khi rời khỏi quầy":{"_muc_do":"Thấp"}},"Sổ sách":{"QĐ thành lập Ban quản lý kho":{"_muc_do":"Cao"},"Giấy ủy quyền (Trưởng đơn vị)":{"_muc_do":"Trung bình"},"Giấy ủy quyền (Trưởng kế toán)":{"_muc_do":"Trung bình"},"Thông báo phân công thủ kho":{"_muc_do":"Trung bình"},"Sổ bàn giao chìa khóa kho tiền":{"_muc_do":"Trung bình"},"Sổ theo dõi vào, ra kho tiền":{"_muc_do":"Cao"},"BB gửi chìa khóa kho dự phòng":{"_muc_do":"Cao"},"Bảng kiểm kê ACT":{"_muc_do":"Thấp"},"Sổ theo dõi ACT":{"_muc_do":"Thấp"},"Sổ theo dõi kiểm tra thiết bị đo":{"_muc_do":"Thấp"},"Sổ Lệnh điều chuyển kiêm giao nhận chìa khóa khoang tiền/ két sắt trên xe chở tiền":{"_muc_do":"Thấp"},"Bộ kiểm quỹ cuối ngày":{"_muc_do":"Thấp"},"Phiếu kiểm tra thiết bị an toàn kho":{"_muc_do":"Cao"}},"Thiết bị":{"Thiết bị trong kho":{"Cầu chữa cháy":"Cao","Đầu báo khói":"Cao","Đầu báo nhiệt":"Cao","Nút nhấn khẩn cấp":"Cao","Đầu báo rung":"Cao","Đầu báo hồng ngoại":"Cao","Công tắc từ":"Cao","Camera không bắt buộc":"Cao","Quạt hút":"Cao"},"Thiết bị gian đệm":{"Công tắc từ":"Cao","Camera bắt buộc":"Cao","Đầu báo hồng ngoại":"Cao"},"Thiết bị PCCC":{"Bình CO2":"Cao","Bình bột F8":"Cao"},"Thiết bị ngoài kho":{"Nút báo động nội bộ":"Cao","Nút báo động kết nối Công An":"Trung bình"}},"Test hệ thống":{"Nút báo động":{"_muc_do":"Cao"},"Công tắc từ":{"_muc_do":"Cao"}},"Bảo trì bảo dưỡng":{"Phương án PCCC":{"_muc_do":"Trung bình"},"Biên bản kiểm tra PCCC":{"_muc_do":"Trung bình"},"Biên bản kiểm tra Camera":{"_muc_do":"Trung bình"},"Biên bản bảo dưỡng định kỳ hệ thống báo động":{"_muc_do":"Trung bình"}},"Khác":{"Quản lý chìa khóa cửa kho tiền":{"_muc_do":"Trung bình"},"Ủy quyền ban quản lý kho":{"_muc_do":"Trung bình"},"Biên bản gửi chìa khóa ATM":{"_muc_do":"Trung bình"},"Bảo quản và phân công chìa ATM":{"_muc_do":"Trung bình"},"Công tác bảo quản tiền mặt, tài sản quý, giấy tờ có giá":{"_muc_do":"Trung bình"}}};
+var HIERARCHY = {"Lệch tiền mặt":{"Quỹ chính":{"_muc_do":"Cao"},"Teller":{"_muc_do":"Cao"}},"Hạn mức tồn quỹ":{"VND":{"_muc_do":"Thấp"},"USD":{"_muc_do":"Thấp"}},"Ấn chỉ":{"Quỹ chính":{"_muc_do":"Cao"},"Teller":{"_muc_do":"Cao"}},"Vàng cầm cố":{"Số lượng":{"_muc_do":"Cao"},"Niêm Phong":{"_muc_do":"Trung bình"}},"Tiền KĐTCLT":{"Lựa tiền":{"_muc_do":"Cao"},"Hạch toán":{"_muc_do":"Trung bình"}},"Biểu mẫu":{"Nội quy vào, ra kho tiền":{"_muc_do":"Thấp"},"Nội quy quầy giao dịch tiền mặt":{"_muc_do":"Thấp"},"Áp phích Mẫu tiền KĐTCLT":{"_muc_do":"Thấp"},"Quy định thu, đổi tiền không đủ tiêu chuẩn lưu thông":{"_muc_do":"Thấp"},"Hướng dẫn khách hàng vào quầy giao dịch":{"_muc_do":"Thấp"},"Tem kiểm định, giấy chứng nhận kiểm định cân vàng":{"_muc_do":"Cao"},"Hướng dẫn khách hàng kiểm tra lại tiền trước khi rời khỏi quầy":{"_muc_do":"Thấp"}},"Sổ sách":{"QĐ thành lập Ban quản lý kho":{"_muc_do":"Cao"},"Giấy ủy quyền (Trưởng đơn vị)":{"_muc_do":"Trung bình"},"Giấy ủy quyền (Trưởng kế toán)":{"_muc_do":"Trung bình"},"Thông báo phân công thủ kho":{"_muc_do":"Trung bình"},"Sổ bàn giao chìa khóa kho tiền":{"_muc_do":"Trung bình"},"Sổ theo dõi vào, ra kho tiền":{"_muc_do":"Cao"},"BB gửi chìa khóa kho dự phòng":{"_muc_do":"Cao"},"Bảng kiểm kê ACT":{"_muc_do":"Thấp"},"Sổ theo dõi ACT":{"_muc_do":"Thấp"},"Sổ theo dõi kiểm tra thiết bị đo":{"_muc_do":"Thấp"},"Sổ Lệnh điều chuyển kiêm giao nhận chìa khóa khoang tiền/ két sắt trên xe chở tiền":{"_muc_do":"Thấp"},"Bộ kiểm quỹ cuối ngày":{"_muc_do":"Thấp"},"Phiếu kiểm tra thiết bị an toàn kho":{"_muc_do":"Cao"}},"Thiết bị":{"Thiết bị trong kho":{"Cầu chữa cháy":"Cao","Đầu báo khói":"Cao","Đầu báo nhiệt":"Cao","Nút nhấn khẩn cấp":"Cao","Đầu báo rung":"Cao","Đầu báo hồng ngoại":"Cao","Công tắc từ":"Cao","Camera không bắt buộc":"Cao","Quạt hút":"Cao"},"Thiết bị gian đệm":{"Công tắc từ":"Cao","Camera bắt buộc":"Cao","Đầu báo hồng ngoại":"Cao"},"Thiết bị PCCC":{"Bình CO2":"Cao","Bình bột F8":"Cao"},"Thiết bị ngoài kho":{"Nút báo động nội bộ":"Cao","Nút báo động kết nối Công An":"Trung bình"}},"Test hệ thống":{"Nút báo động":{"_muc_do":"Cao"},"Công tắc từ":{"_muc_do":"Cao"}},"Bảo trì bảo dưỡng":{"Phương án PCCC":{"_muc_do":"Trung bình"},"Biên bản kiểm tra PCCC":{"_muc_do":"Trung bình"},"Biên bản kiểm tra Camera":{"_muc_do":"Trung bình"},"Biên bản bảo dưỡng định kỳ hệ thống báo động":{"_muc_do":"Trung bình"}},"Khác":{"Giám Đốc kiểm quỹ đột xuất":{"_muc_do":"Thấp"},"Quản lý chìa khóa cửa kho tiền":{"_muc_do":"Trung bình"},"Ủy quyền ban quản lý kho":{"_muc_do":"Trung bình"},"Biên bản gửi chìa khóa ATM":{"_muc_do":"Trung bình"},"Bảo quản và phân công chìa ATM":{"_muc_do":"Trung bình"},"Công tác bảo quản tiền mặt, tài sản quý, giấy tờ có giá":{"_muc_do":"Trung bình"}}};
 var STATUS_LIST = ["Chưa khắc phục","Đang khắc phục","Đã khắc phục","Khắc phục ngay"];
 var SOL_TO_NAME = {};
 for(var i=0;i<UNITS.length;i++){ SOL_TO_NAME[UNITS[i].sol]=UNITS[i].name; }
@@ -542,9 +588,11 @@ function blank(){
     nhom_loi:'',cap1:[],cap2:[],
     mo_ta:'',phoi_hop:'',
     ngay_ht:'',trang_thai:'',
-    bang_chung:'',da_kp:[]
+    bang_chung:'',da_kp:[],
+    loai:'Đề nghị'
   };
 }
+var LOAI_LIST = ['Đề nghị','Khuyến nghị'];
 function addRow(){
   var rec = blank();
   delete rec._new;
@@ -601,23 +649,44 @@ function getRiskAndPoints(rec){
     } else { Object.keys(grp[c1]).forEach(function(k){ risks.push(grp[c1][k]); }); }
   });
   risks.forEach(function(r){ var v=rank[r]||0; if(v>maxR){ maxR=v; max=r; } });
-  return {risk:max, pt: max?pts[max]:''};
+  var pt = max ? pts[max] : '';
+  if(rec.loai === 'Khuyến nghị') pt = 0;
+  return {risk:max, pt: pt};
 }
 function calcPercent(rec){
   if(rec.trang_thai==='Đã khắc phục') return 100;
   if(rec.trang_thai==='Khắc phục ngay') return 100;
   if(rec.trang_thai==='Chưa khắc phục') return 0;
-  if(rec.trang_thai==='Đang khắc phục'){
-    var total=(rec.cap2||[]).length>0 ? rec.cap2.length : (rec.cap1||[]).length;
-    var done=(rec.da_kp||[]).length;
-    return total===0?0:Math.round(done/total*100);
-  }
+  var total=(rec.cap2||[]).length>0 ? rec.cap2.length : (rec.cap1||[]).length;
+  var done=(rec.da_kp||[]).length;
+  if(rec.trang_thai==='Đang khắc phục'){ return total===0?0:Math.round(done/total*100); }
+  if(total>0) return Math.round(done/total*100);
   return '';
+}
+function attachColResizers(){
+  var ths=document.querySelectorAll('#entryTable thead th');
+  ths.forEach(function(th){
+    if(th.querySelector('.col-resizer')) return;
+    var rs=document.createElement('div'); rs.className='col-resizer';
+    th.appendChild(rs);
+    var startX, startW;
+    rs.addEventListener('mousedown', function(e){
+      e.preventDefault(); rs.classList.add('active');
+      startX=e.clientX; startW=th.offsetWidth;
+      function onMove(ev){
+        var w=Math.max(40, startW+(ev.clientX-startX));
+        th.style.width=w+'px'; th.style.minWidth=w+'px'; th.style.maxWidth=w+'px';
+      }
+      function onUp(){ rs.classList.remove('active'); document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  });
 }
 function renderTable(){
   var body=$('entryBody');
   body.innerHTML='';
-  if(!records.length){ body.innerHTML='<tr><td colspan="20" class="empty">Chưa có dữ liệu. Bấm <b>+ TẠO DỮ LIỆU</b>.</td></tr>'; return; }
+  if(!records.length){ body.innerHTML='<tr><td colspan="21" class="empty">Chưa có dữ liệu. Bấm <b>+ TẠO DỮ LIỆU</b>.</td></tr>'; attachColResizers(); return; }
   for(var idx=0; idx<records.length; idx++){
     var r=records[idx];
     var so_bb=buildBB(r,idx); var rp=getRiskAndPoints(r); var risk=rp.risk, pt=rp.pt;
@@ -628,6 +697,7 @@ function renderTable(){
     Object.keys(HIERARCHY).forEach(function(k){ optsNhom+='<option'+(r.nhom_loi===k?' selected':'')+'>'+escapeHtml(k)+'</option>'; });
     var optsTrang='<option value="">--</option>';
     STATUS_LIST.forEach(function(s){ optsTrang+='<option'+(r.trang_thai===s?' selected':'')+'>'+escapeHtml(s)+'</option>'; });
+    var optsLoai=''; LOAI_LIST.forEach(function(l){ optsLoai+='<option'+((r.loai||'Đề nghị')===l?' selected':'')+'>'+escapeHtml(l)+'</option>'; });
     var cap1Html=(r.cap1||[]).length?(r.cap1).map(function(c){return '<span class="tag">'+escapeHtml(c)+'</span>';}).join(''):'<i style="color:#9ca3af">Bấm chọn</i>';
     var cap2Html=(r.cap2||[]).length?(r.cap2).map(function(c){return '<span class="tag">'+escapeHtml(c)+'</span>';}).join(''):'<i style="color:#9ca3af">Bấm chọn</i>';
     var dakpHtml=(r.da_kp||[]).length?(r.da_kp).map(function(c){return '<span class="tag">'+escapeHtml(c)+'</span>';}).join(''):'<i style="color:#9ca3af">Bấm chọn</i>';
@@ -637,9 +707,16 @@ function renderTable(){
     var delBtn=canEdit?'<button class="btn btn-danger" style="padding:4px 8px;font-size:11px" data-del="'+r.id+'">Xóa</button>':'<span style="color:#9ca3af;font-size:11px">—</span>';
     var tr=document.createElement('tr');
     if(!canEdit) tr.className='row-locked';
+    var dateCell = function(field, value){
+      return '<td class="col-date"><div class="dp-wrap">'+
+        '<input type="text" class="dateinput" placeholder="dd/mm/yyyy" maxlength="10" value="'+fmtDate(value)+'" data-id="'+r.id+'" data-field="'+field+'" data-mask="date">'+
+        '<button class="dp-icon" type="button" title="Chọn ngày" data-pickdate="'+r.id+'" data-pickfield="'+field+'">📅</button>'+
+        '<input type="date" class="dp-hidden" data-hiddendate="'+r.id+'_'+field+'" value="'+(value||'')+'">'+
+      '</div></td>';
+    };
     tr.innerHTML=
       '<td class="readonly col-stt">'+sttStr+lockBadge+'</td>'+
-      '<td class="col-date"><input type="text" class="dateinput" placeholder="dd/mm/yyyy" maxlength="10" value="'+fmtDate(r.ngay_kt)+'" data-id="'+r.id+'" data-field="ngay_kt" data-mask="date"></td>'+
+      dateCell('ngay_kt', r.ngay_kt)+
       '<td class="col-sol"><select data-id="'+r.id+'" data-field="sol">'+optsSol+'</select></td>'+
       '<td class="readonly col-dvkd">'+escapeHtml(dvkdFromSol(r.sol))+'</td>'+
       '<td class="readonly col-bb">'+(so_bb||'<i style="color:#9ca3af">Chọn SOL & ngày</i>')+'</td>'+
@@ -649,10 +726,11 @@ function renderTable(){
       '<td class="col-text"><textarea rows="2" data-id="'+r.id+'" data-field="mo_ta">'+escapeHtml(r.mo_ta||'')+'</textarea></td>'+
       '<td class="readonly col-num">'+(risk?'<span class="risk risk-'+slugClass(risk)+'">'+escapeHtml(risk)+'</span>':'')+'</td>'+
       '<td class="readonly col-num">'+(pt!==''?pt:'')+'</td>'+
+      '<td class="col-nhom"><select data-id="'+r.id+'" data-field="loai">'+optsLoai+'</select></td>'+
       '<td class="readonly col-dvkd">'+escapeHtml(r.nguoi_nhap||'')+'</td>'+
       '<td class="col-text"><textarea rows="2" data-id="'+r.id+'" data-field="phoi_hop">'+escapeHtml(r.phoi_hop||'')+'</textarea></td>'+
       '<td class="readonly col-date">'+fmtDate(han)+'</td>'+
-      '<td class="col-date"><input type="text" class="dateinput" placeholder="dd/mm/yyyy" maxlength="10" value="'+fmtDate(r.ngay_ht)+'" data-id="'+r.id+'" data-field="ngay_ht" data-mask="date"></td>'+
+      dateCell('ngay_ht', r.ngay_ht)+
       '<td class="col-nhom"><select data-id="'+r.id+'" data-field="trang_thai">'+optsTrang+'</select></td>'+
       '<td class="col-text"><textarea rows="2" data-id="'+r.id+'" data-field="bang_chung">'+escapeHtml(r.bang_chung||'')+'</textarea></td>'+
       '<td class="col-cap2"><div class="multi-tags" data-multi="da_kp" data-id="'+r.id+'">'+dakpHtml+'</div></td>'+
@@ -660,6 +738,7 @@ function renderTable(){
       '<td class="col-action">'+delBtn+'</td>';
     body.appendChild(tr);
   }
+  attachColResizers();
 }
 
 document.addEventListener('change', function(e){
@@ -678,10 +757,46 @@ document.addEventListener('click', function(e){
     if(rec && !canEditRec(rec)){ toast('Không có quyền','error'); return; }
     openMulti(m.dataset.id, m.dataset.multi); return;
   }
+  if(t && t.dataset && t.dataset.pickdate){
+    var key = t.dataset.pickdate + '_' + t.dataset.pickfield;
+    var hidden = document.querySelector('[data-hiddendate="'+key+'"]');
+    if(hidden){ try { if(hidden.showPicker) hidden.showPicker(); else hidden.click(); } catch(err){ hidden.click(); } }
+    return;
+  }
   if(t && t.dataset && t.dataset.del){ delRow(t.dataset.del); return; }
   if(t && t.dataset && t.dataset.close){ closeModal(t.dataset.close); return; }
   if(t && t.dataset && t.dataset.userrole){ promoteUser(t.dataset.userrole, t.dataset.value); return; }
   if(t && t.dataset && t.dataset.useractive){ toggleActive(t.dataset.useractive, t.dataset.value); return; }
+});
+
+document.addEventListener('input', function(e){
+  var t = e.target;
+  if(t && t.dataset && t.dataset.mask==='date'){ maskDateInput(t); }
+});
+
+document.addEventListener('change', function(e){
+  var t=e.target;
+  if(t && t.dataset && t.dataset.hiddendate){
+    var parts = t.dataset.hiddendate.split('_');
+    var id = parts[0], field = parts[1];
+    if(t.value){
+      var p = t.value.split('-');
+      var vn = p[2]+'/'+p[1]+'/'+p[0];
+      updRec(id, field, vn);
+    }
+  }
+}, true);
+
+document.addEventListener('focusin', function(e){
+  var t=e.target;
+  if(t && (t.tagName==='INPUT'||t.tagName==='SELECT'||t.tagName==='TEXTAREA')){
+    var w=document.querySelector('.table-wrap');
+    if(w && t.closest && t.closest('.table-wrap')===w){
+      var r=t.getBoundingClientRect(), wr=w.getBoundingClientRect();
+      if(r.left<wr.left+20) w.scrollLeft += (r.left-wr.left-20);
+      else if(r.right>wr.right-20) w.scrollLeft += (r.right-wr.right+20);
+    }
+  }
 });
 
 // ====== MULTI MODAL ======
@@ -714,9 +829,28 @@ function openMulti(recId, field){
       if(!any) html='<div class="empty">Cấp 1 không có cấp 2 con. Bỏ qua.</div>';
     }
   } else if(field==='da_kp'){
-    var src=(rec.cap2||[]).length>0 ? rec.cap2 : (rec.cap1||[]);
+    var hasCap2 = (rec.cap2||[]).length>0;
+    var src = hasCap2 ? rec.cap2 : (rec.cap1||[]);
     if(!src.length){ html='<div class="empty">Chọn cấp 1/2 trước.</div>'; }
-    else { src.forEach(function(it){ html+='<label><input type="checkbox" value="'+escapeAttr(it)+'"'+((rec.da_kp||[]).indexOf(it)!==-1?' checked':'')+'>'+escapeHtml(it)+'</label>'; }); }
+    else {
+      html += '<div style="background:#f0f7ff;padding:8px;border-radius:4px;margin-bottom:8px;font-size:12px;color:var(--brand-dark)">Tick các mục đã hoàn thành khắc phục. Danh sách dưới chính là <b>'+(hasCap2?'nhóm lỗi cấp 2':'nhóm lỗi cấp 1')+'</b> bạn đã chọn ở dòng này.</div>';
+      if(hasCap2){
+        (rec.cap1||[]).forEach(function(c1){
+          var sub=(HIERARCHY[rec.nhom_loi]||{})[c1];
+          if(!sub||'_muc_do' in sub) return;
+          var c2List=src.filter(function(c2){ return c2 in sub; });
+          if(!c2List.length) return;
+          html+='<div class="group-label">'+escapeHtml(c1)+'</div>';
+          c2List.forEach(function(c2){
+            html+='<label><input type="checkbox" value="'+escapeAttr(c2)+'"'+((rec.da_kp||[]).indexOf(c2)!==-1?' checked':'')+'>'+escapeHtml(c2)+'</label>';
+          });
+        });
+      } else {
+        src.forEach(function(it){
+          html+='<label><input type="checkbox" value="'+escapeAttr(it)+'"'+((rec.da_kp||[]).indexOf(it)!==-1?' checked':'')+'>'+escapeHtml(it)+'</label>';
+        });
+      }
+    }
   }
   $('multiList').innerHTML=html;
   $('multiModal').classList.add('show');
@@ -737,37 +871,123 @@ function closeModal(id){ $(id).classList.remove('show'); }
 
 // ====== REPORT ======
 var charts={};
+var reportState={s1:'a', s2:'a', s2Selected:{}};
+function isDoneStatus(s){ return s==='Đã khắc phục' || s==='Khắc phục ngay'; }
+function isNotDoneStatus(s){ return s==='Chưa khắc phục'; }
+function aggregateByHierarchy(recs, filterFn){
+  var agg = {};
+  recs.forEach(function(r){
+    if(filterFn && !filterFn(r)) return;
+    if(!r.nhom_loi) return;
+    if(!agg[r.nhom_loi]) agg[r.nhom_loi]={total:0, cap1:{}};
+    agg[r.nhom_loi].total++;
+    (r.cap1||[]).forEach(function(c1){
+      if(!agg[r.nhom_loi].cap1[c1]) agg[r.nhom_loi].cap1[c1]={total:0, cap2:{}};
+      agg[r.nhom_loi].cap1[c1].total++;
+      var sub=(HIERARCHY[r.nhom_loi]||{})[c1];
+      (r.cap2||[]).filter(function(c2){ return sub && !('_muc_do' in sub) && c2 in sub; }).forEach(function(c2){
+        if(!agg[r.nhom_loi].cap1[c1].cap2[c2]) agg[r.nhom_loi].cap1[c1].cap2[c2]=0;
+        agg[r.nhom_loi].cap1[c1].cap2[c2]++;
+      });
+    });
+  });
+  return agg;
+}
+function renderHierarchyTable(agg, grandTotal){
+  if(grandTotal===undefined){ grandTotal=0; Object.keys(agg).forEach(function(n){ grandTotal+=agg[n].total; }); }
+  if(grandTotal===0) return '<div class="empty">Không có dữ liệu</div>';
+  var html='<table class="rtable"><thead><tr><th>Nhóm lỗi</th><th class="num" style="width:120px">Số lượng</th><th class="num" style="width:100px">Tỷ lệ %</th></tr></thead><tbody>';
+  Object.keys(agg).forEach(function(nhom){
+    var n=agg[nhom]; var pct=grandTotal?Math.round(n.total/grandTotal*100):0;
+    html+='<tr class="group-row"><td>'+escapeHtml(nhom)+'</td><td class="num">'+n.total+'</td><td class="num">'+pct+'%</td></tr>';
+    Object.keys(n.cap1).forEach(function(c1){
+      var cd=n.cap1[c1]; var p1=n.total?Math.round(cd.total/n.total*100):0;
+      html+='<tr class="sub-row"><td>↳ '+escapeHtml(c1)+'</td><td class="num">'+cd.total+'</td><td class="num">'+p1+'%</td></tr>';
+      Object.keys(cd.cap2).forEach(function(c2){
+        var cnt=cd.cap2[c2]; var p2=cd.total?Math.round(cnt/cd.total*100):0;
+        html+='<tr class="subsub-row"><td>  • '+escapeHtml(c2)+'</td><td class="num">'+cnt+'</td><td class="num">'+p2+'%</td></tr>';
+      });
+    });
+  });
+  html+='<tr class="total-row"><td>TỔNG</td><td class="num">'+grandTotal+'</td><td class="num">100%</td></tr></tbody></table>';
+  return html;
+}
+function renderS1(){
+  var sub=reportState.s1; var fn=null;
+  if(sub==='b') fn=function(r){return isDoneStatus(r.trang_thai);};
+  else if(sub==='c') fn=function(r){return isNotDoneStatus(r.trang_thai);};
+  $('reportS1Body').innerHTML = renderHierarchyTable(aggregateByHierarchy(records, fn));
+}
+function renderS2(){
+  var sub=reportState.s2;
+  var sols=Object.keys(reportState.s2Selected).filter(function(k){return reportState.s2Selected[k];});
+  if(!sols.length){ $('reportS2Body').innerHTML='<div class="empty">Chọn ít nhất 1 đơn vị ở trên</div>'; return; }
+  var fn=function(r){ return sols.indexOf(r.sol)!==-1; };
+  if(sub==='b') fn=function(r){ return sols.indexOf(r.sol)!==-1 && isDoneStatus(r.trang_thai); };
+  else if(sub==='c') fn=function(r){ return sols.indexOf(r.sol)!==-1 && isNotDoneStatus(r.trang_thai); };
+  $('reportS2Body').innerHTML = renderHierarchyTable(aggregateByHierarchy(records, fn));
+}
+function renderS3(){
+  var byUnit={};
+  records.forEach(function(r){
+    if(!r.sol) return;
+    if(!byUnit[r.sol]) byUnit[r.sol]={kpngay:0,dakp:0,chuakp:0,dangkp:0,dungHan:0,quaHan:0,total:0};
+    var u=byUnit[r.sol]; u.total++;
+    if(r.trang_thai==='Khắc phục ngay') u.kpngay++;
+    if(r.trang_thai==='Đã khắc phục') u.dakp++;
+    if(r.trang_thai==='Chưa khắc phục') u.chuakp++;
+    if(r.trang_thai==='Đang khắc phục') u.dangkp++;
+    if(isDoneStatus(r.trang_thai)){ var han=plusOneMonth(r.ngay_kt); if(r.ngay_ht && han){ if(r.ngay_ht<=han) u.dungHan++; else u.quaHan++; } }
+  });
+  var keys=Object.keys(byUnit).sort(function(a,b){return byUnit[b].total-byUnit[a].total;});
+  if(!keys.length){ $('reportS3Body').innerHTML='<div class="empty">Không có dữ liệu</div>'; return; }
+  var html='<table class="rtable"><thead><tr><th>SOL</th><th>Đơn vị</th><th class="num">Tổng</th><th class="num">KP ngay</th><th class="num">Đã KP</th><th class="num">Đang KP</th><th class="num">Chưa KP</th><th class="num">Đúng hạn</th><th class="num">Quá hạn</th><th class="num">% HT</th></tr></thead><tbody>';
+  var sumT={total:0,kpngay:0,dakp:0,chuakp:0,dangkp:0,dungHan:0,quaHan:0};
+  keys.forEach(function(sol){
+    var u=byUnit[sol]; var done=u.kpngay+u.dakp; var pct=u.total?Math.round(done/u.total*100):0;
+    html+='<tr><td><b>'+sol+'</b></td><td>'+escapeHtml(SOL_TO_NAME[sol]||'')+'</td><td class="num">'+u.total+'</td><td class="num">'+u.kpngay+'</td><td class="num">'+u.dakp+'</td><td class="num">'+u.dangkp+'</td><td class="num">'+u.chuakp+'</td><td class="num" style="color:#10b981">'+u.dungHan+'</td><td class="num" style="color:#dc2626">'+u.quaHan+'</td><td class="num">'+pct+'%</td></tr>';
+    sumT.total+=u.total; sumT.kpngay+=u.kpngay; sumT.dakp+=u.dakp; sumT.chuakp+=u.chuakp; sumT.dangkp+=u.dangkp; sumT.dungHan+=u.dungHan; sumT.quaHan+=u.quaHan;
+  });
+  var td=sumT.kpngay+sumT.dakp; var tp=sumT.total?Math.round(td/sumT.total*100):0;
+  html+='<tr class="total-row"><td colspan="2">TỔNG '+keys.length+' đơn vị</td><td class="num">'+sumT.total+'</td><td class="num">'+sumT.kpngay+'</td><td class="num">'+sumT.dakp+'</td><td class="num">'+sumT.dangkp+'</td><td class="num">'+sumT.chuakp+'</td><td class="num">'+sumT.dungHan+'</td><td class="num">'+sumT.quaHan+'</td><td class="num">'+tp+'%</td></tr></tbody></table>';
+  $('reportS3Body').innerHTML=html;
+}
+function renderUnitPickerS2(){
+  var q=($('s2Search').value||'').toLowerCase();
+  var html='';
+  UNITS.forEach(function(u){
+    var match=!q||u.sol.indexOf(q)!==-1||removeDiacritics(u.name.toLowerCase()).indexOf(removeDiacritics(q))!==-1;
+    if(!match) return;
+    var checked=reportState.s2Selected[u.sol]?' checked':'';
+    html+='<label><input type="checkbox" data-s2unit="'+u.sol+'"'+checked+'>'+u.sol+' — '+escapeHtml(u.name)+'</label>';
+  });
+  $('s2UnitList').innerHTML=html||'<div class="empty">Không có đơn vị</div>';
+  var c=Object.keys(reportState.s2Selected).filter(function(k){return reportState.s2Selected[k];}).length;
+  $('s2Count').textContent=c+' đơn vị';
+}
 function renderReport(){
   var cnt={'Khắc phục ngay':0,'Đã khắc phục':0,'Đang khắc phục':0,'Chưa khắc phục':0};
-  var dungHan=0, quaHan=0;
+  var dh=0, qh=0;
   records.forEach(function(r){
     if(r.trang_thai in cnt) cnt[r.trang_thai]++;
-    if(r.trang_thai==='Đã khắc phục'||r.trang_thai==='Khắc phục ngay'){
-      var han=plusOneMonth(r.ngay_kt);
-      if(r.ngay_ht && han){ if(r.ngay_ht<=han) dungHan++; else quaHan++; }
-    }
+    if(isDoneStatus(r.trang_thai)){ var han=plusOneMonth(r.ngay_kt); if(r.ngay_ht && han){ if(r.ngay_ht<=han) dh++; else qh++; } }
   });
-  var total=records.length, doneSum=cnt['Đã khắc phục']+cnt['Khắc phục ngay'];
-  var tlhh=total?Math.round(doneSum/total*100):0;
+  var total=records.length, ds=cnt['Đã khắc phục']+cnt['Khắc phục ngay'];
+  var nd=cnt['Chưa khắc phục']; var tl=total?Math.round(ds/total*100):0;
   $('kpiGrid').innerHTML=
-    '<div class="kpi-card"><div class="label">Tổng số lỗi</div><div class="value">'+total+'</div></div>'+
+    '<div class="kpi-card"><div class="label">Tổng số lỗi</div><div class="value">'+total+'</div><div class="sub">= Đã KP ('+ds+') + Chưa KP ('+nd+') + Đang KP ('+cnt['Đang khắc phục']+')</div></div>'+
     '<div class="kpi-card kpi-ok"><div class="label">Khắc phục ngay</div><div class="value">'+cnt['Khắc phục ngay']+'</div></div>'+
     '<div class="kpi-card kpi-ok"><div class="label">Đã khắc phục</div><div class="value">'+cnt['Đã khắc phục']+'</div></div>'+
-    '<div class="kpi-card kpi-ok"><div class="label">Đã KP + KP ngay</div><div class="value">'+doneSum+'</div><div class="sub">Tỷ lệ '+tlhh+'%</div></div>'+
+    '<div class="kpi-card kpi-ok"><div class="label">Đã KP + KP ngay</div><div class="value">'+ds+'</div><div class="sub">Tỷ lệ '+tl+'%</div></div>'+
     '<div class="kpi-card kpi-warn"><div class="label">Đang khắc phục</div><div class="value">'+cnt['Đang khắc phục']+'</div></div>'+
     '<div class="kpi-card kpi-danger"><div class="label">Chưa khắc phục</div><div class="value">'+cnt['Chưa khắc phục']+'</div></div>'+
-    '<div class="kpi-card kpi-ok"><div class="label">Đã KP đúng hạn</div><div class="value">'+dungHan+'</div></div>'+
-    '<div class="kpi-card kpi-danger"><div class="label">Đã KP quá hạn</div><div class="value">'+quaHan+'</div></div>';
+    '<div class="kpi-card kpi-ok"><div class="label">Đã KP đúng hạn</div><div class="value">'+dh+'</div></div>'+
+    '<div class="kpi-card kpi-danger"><div class="label">Đã KP quá hạn</div><div class="value">'+qh+'</div></div>';
   if(typeof Chart!=='undefined'){
     drawChart('chartStatus','doughnut',{labels:Object.keys(cnt),datasets:[{data:Object.keys(cnt).map(function(k){return cnt[k];}),backgroundColor:['#3b82f6','#10b981','#f59e0b','#dc2626']}]});
-    drawChart('chartDeadline','pie',{labels:['Đúng hạn','Quá hạn'],datasets:[{data:[dungHan,quaHan],backgroundColor:['#10b981','#dc2626']}]});
-    var byUnit={}; records.forEach(function(r){ if(r.sol) byUnit[r.sol]=(byUnit[r.sol]||0)+1; });
-    var sorted=Object.keys(byUnit).map(function(k){return [k,byUnit[k]];}).sort(function(a,b){return b[1]-a[1];}).slice(0,10);
-    drawChart('chartTopUnits','bar',{labels:sorted.map(function(s){return SOL_TO_NAME[s[0]]||s[0];}),datasets:[{label:'Số lỗi',data:sorted.map(function(s){return s[1];}),backgroundColor:'#005D98'}]},{indexAxis:'y'});
-    var byGroup={}; records.forEach(function(r){ if(r.nhom_loi) byGroup[r.nhom_loi]=(byGroup[r.nhom_loi]||0)+1; });
-    drawChart('chartByGroup','bar',{labels:Object.keys(byGroup),datasets:[{label:'Số lỗi',data:Object.keys(byGroup).map(function(k){return byGroup[k];}),backgroundColor:'#29ABE2'}]});
+    drawChart('chartDeadline','pie',{labels:['Đúng hạn','Quá hạn'],datasets:[{data:[dh,qh],backgroundColor:['#10b981','#dc2626']}]});
   }
-  renderUnitSelect();
+  renderS1(); renderUnitPickerS2(); renderS2(); renderS3();
 }
 function drawChart(id,type,data,opt){
   if(charts[id]) charts[id].destroy();
@@ -776,26 +996,24 @@ function drawChart(id,type,data,opt){
   if(opt) for(var k in opt) options[k]=opt[k];
   charts[id]=new Chart(ctx,{type:type,data:data,options:options});
 }
-function renderUnitSelect(){
-  var q=($('searchUnit').value||'').toLowerCase();
-  var sel=$('unitSelect'); var cur=sel.value;
-  var html='<option value="">-- Chọn đơn vị --</option>';
-  UNITS.forEach(function(u){
-    var match=!q||u.sol.indexOf(q)!==-1||removeDiacritics(u.name.toLowerCase()).indexOf(removeDiacritics(q))!==-1;
-    if(match) html+='<option value="'+u.sol+'"'+(u.sol===cur?' selected':'')+'>'+u.sol+' — '+escapeHtml(u.name)+'</option>';
-  });
-  sel.innerHTML=html;
-}
-function renderUnitStats(){
-  var sol=$('unitSelect').value; var div=$('unitStats');
-  if(!sol){ div.innerHTML=''; return; }
-  var recs=records.filter(function(r){return r.sol===sol;});
-  var total=recs.length;
-  var done=recs.filter(function(r){return r.trang_thai==='Đã khắc phục'||r.trang_thai==='Khắc phục ngay';}).length;
-  var doing=recs.filter(function(r){return r.trang_thai==='Đang khắc phục'||r.trang_thai==='Chưa khắc phục';}).length;
-  var tl=total?Math.round(done/total*100):0;
-  div.innerHTML='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:8px"><div class="kpi-card"><div class="label">Tổng</div><div class="value">'+total+'</div></div><div class="kpi-card kpi-ok"><div class="label">Đã KP</div><div class="value">'+done+'</div></div><div class="kpi-card kpi-warn"><div class="label">Chưa/Đang KP</div><div class="value">'+doing+'</div></div><div class="kpi-card kpi-ok"><div class="label">Tỷ lệ HT</div><div class="value">'+tl+'%</div></div></div>';
-}
+document.addEventListener('click', function(e){
+  var t=e.target;
+  if(t && t.dataset && t.dataset.rsub){
+    var key=t.dataset.rsub; var sec=key.substring(0,2); var sub=key.charAt(2);
+    reportState[sec]=sub;
+    document.querySelectorAll('[data-rsub^="'+sec+'"]').forEach(function(b){ b.classList.toggle('active', b.dataset.rsub===key); });
+    if(sec==='s1') renderS1(); else renderS2();
+  }
+});
+document.addEventListener('change', function(e){
+  var t=e.target;
+  if(t && t.dataset && t.dataset.s2unit){
+    reportState.s2Selected[t.dataset.s2unit] = t.checked;
+    var c=Object.keys(reportState.s2Selected).filter(function(k){return reportState.s2Selected[k];}).length;
+    $('s2Count').textContent=c+' đơn vị';
+    renderS2();
+  }
+});
 
 // ====== EXPORT (print preview) ======
 function renderExport(){
@@ -844,7 +1062,7 @@ function exportPDF(mode){
     var origIdx=-1; for(var oi=0;oi<records.length;oi++){ if(records[oi].id===rec.id){ origIdx=oi; break; } }
     var so_bb=buildBB(rec,origIdx); var rp=getRiskAndPoints(rec);
     var han=plusOneMonth(rec.ngay_kt); var pct=calcPercent(rec);
-    rowsHtml+='<tr><td>'+(i+1)+'</td><td>'+fmtDate(rec.ngay_kt)+'</td><td>'+escapeHtml(rec.sol||'')+'</td><td>'+escapeHtml(dvkdFromSol(rec.sol))+'</td><td>'+escapeHtml(so_bb||'')+'</td><td>'+escapeHtml(rec.nhom_loi||'')+'</td><td>'+escapeHtml((rec.cap1||[]).join(', '))+'</td><td>'+escapeHtml((rec.cap2||[]).join(', '))+'</td><td>'+escapeHtml(rec.mo_ta||'')+'</td><td>'+escapeHtml(rp.risk||'')+'</td><td>'+(rp.pt!==''?rp.pt:'')+'</td><td>'+escapeHtml(rec.nguoi_nhap||'')+'</td><td>'+fmtDate(han)+'</td><td>'+fmtDate(rec.ngay_ht)+'</td><td>'+escapeHtml(rec.trang_thai||'')+'</td><td>'+(pct!==''?pct+'%':'')+'</td></tr>';
+    rowsHtml+='<tr><td>'+(i+1)+'</td><td>'+fmtDate(rec.ngay_kt)+'</td><td>'+escapeHtml(rec.sol||'')+'</td><td>'+escapeHtml(dvkdFromSol(rec.sol))+'</td><td>'+escapeHtml(so_bb||'')+'</td><td>'+escapeHtml(rec.nhom_loi||'')+'</td><td>'+escapeHtml((rec.cap1||[]).join(', '))+'</td><td>'+escapeHtml((rec.cap2||[]).join(', '))+'</td><td>'+escapeHtml(rec.mo_ta||'')+'</td><td>'+escapeHtml(rp.risk||'')+'</td><td>'+(rp.pt!==''?rp.pt:'')+'</td><td>'+escapeHtml(rec.loai||'')+'</td><td>'+escapeHtml(rec.nguoi_nhap||'')+'</td><td>'+fmtDate(han)+'</td><td>'+fmtDate(rec.ngay_ht)+'</td><td>'+escapeHtml(rec.trang_thai||'')+'</td><td>'+(pct!==''?pct+'%':'')+'</td></tr>';
   });
   var now=new Date();
   var dd=(now.getDate()<10?'0':'')+now.getDate(), mm=(now.getMonth()+1<10?'0':'')+(now.getMonth()+1);
@@ -857,7 +1075,7 @@ function exportPDF(mode){
     '<div class="print-header"><div><h1>'+escapeHtml(title)+'</h1><h2>'+escapeHtml(subTitle)+'</h2></div><div class="meta">Ngày xuất: '+dateStr+'<br>Người xuất: '+escapeHtml(currentUser?currentUser.name||currentUser.email:'')+'</div></div>'+
     '<div class="kpis"><div class="kpi"><div class="lbl">Tổng số lỗi</div><div class="val">'+total+'</div></div><div class="kpi ok"><div class="lbl">Khắc phục ngay</div><div class="val">'+cnt['Khắc phục ngay']+'</div></div><div class="kpi ok"><div class="lbl">Đã khắc phục</div><div class="val">'+cnt['Đã khắc phục']+'</div></div><div class="kpi ok"><div class="lbl">Tỷ lệ hoàn thành</div><div class="val">'+tl+'%</div></div><div class="kpi warn"><div class="lbl">Đang khắc phục</div><div class="val">'+cnt['Đang khắc phục']+'</div></div><div class="kpi bad"><div class="lbl">Chưa khắc phục</div><div class="val">'+cnt['Chưa khắc phục']+'</div></div><div class="kpi ok"><div class="lbl">Đã KP đúng hạn</div><div class="val">'+dungHan+'</div></div><div class="kpi bad"><div class="lbl">Đã KP quá hạn</div><div class="val">'+quaHan+'</div></div></div>'+
     '<div class="charts"><div class="chart-block"><h3>Phân bổ trạng thái</h3><canvas id="cStatus"></canvas></div><div class="chart-block"><h3>Đúng hạn vs. Quá hạn</h3><canvas id="cDeadline"></canvas></div><div class="chart-block"><h3>Top 10 đơn vị nhiều lỗi</h3><canvas id="cTopUnits"></canvas></div><div class="chart-block"><h3>Số lỗi theo nhóm</h3><canvas id="cByGroup"></canvas></div></div>'+
-    '<h2 class="section">Chi tiết các lỗi</h2><table><thead><tr><th>STT</th><th>Ngày KT</th><th>SOL</th><th>ĐVKD</th><th>Số biên bản</th><th>Nhóm lỗi</th><th>Cấp 1</th><th>Cấp 2</th><th>Mô tả</th><th>Mức độ</th><th>Điểm</th><th>Người nhập</th><th>Hạn KP</th><th>Ngày HT</th><th>Trạng thái</th><th>% HT</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'+
+    '<h2 class="section">Chi tiết các lỗi</h2><table><thead><tr><th>STT</th><th>Ngày KT</th><th>SOL</th><th>ĐVKD</th><th>Số biên bản</th><th>Nhóm lỗi</th><th>Cấp 1</th><th>Cấp 2</th><th>Mô tả</th><th>Mức độ</th><th>Điểm</th><th>Loại</th><th>Người nhập</th><th>Hạn KP</th><th>Ngày HT</th><th>Trạng thái</th><th>% HT</th></tr></thead><tbody>'+rowsHtml+'</tbody></table>'+
     '<div class="print-footer"><span>Hệ thống Báo cáo lỗi chi nhánh Eximbank</span><span>'+dateStr+'</span></div>'+
     '<script>var DATA='+JSON.stringify({cnt:cnt,dungHan:dungHan,quaHan:quaHan,topUnits:topUnits.map(function(s){return {name:SOL_TO_NAME[s[0]]||s[0],val:s[1]};}),byGroup:byGroup})+';function drawAll(){if(typeof Chart==="undefined"){setTimeout(drawAll,200);return;}new Chart(document.getElementById("cStatus"),{type:"doughnut",data:{labels:Object.keys(DATA.cnt),datasets:[{data:Object.keys(DATA.cnt).map(function(k){return DATA.cnt[k];}),backgroundColor:["#3b82f6","#10b981","#f59e0b","#dc2626"]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{font:{size:10}}}},animation:false}});new Chart(document.getElementById("cDeadline"),{type:"pie",data:{labels:["Đúng hạn","Quá hạn"],datasets:[{data:[DATA.dungHan,DATA.quaHan],backgroundColor:["#10b981","#dc2626"]}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:"bottom",labels:{font:{size:10}}}},animation:false}});new Chart(document.getElementById("cTopUnits"),{type:"bar",data:{labels:DATA.topUnits.map(function(t){return t.name;}),datasets:[{label:"Số lỗi",data:DATA.topUnits.map(function(t){return t.val;}),backgroundColor:"#005D98"}]},options:{indexAxis:"y",responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},animation:false}});new Chart(document.getElementById("cByGroup"),{type:"bar",data:{labels:Object.keys(DATA.byGroup),datasets:[{label:"Số lỗi",data:Object.keys(DATA.byGroup).map(function(k){return DATA.byGroup[k];}),backgroundColor:"#29ABE2"}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},animation:false}});}window.addEventListener("load",drawAll);<\/script></body></html>';
   var w=window.open('','_blank');
@@ -910,14 +1128,38 @@ $('btnLogin').addEventListener('click', doLogin);
 $('btnSignup').addEventListener('click', doSignup);
 $('btnReset').addEventListener('click', doReset);
 $('btnLogout').addEventListener('click', doLogout);
+$('btnEditName').addEventListener('click', function(){
+  var newName = prompt('Nhập họ và tên đầy đủ:', currentUser.name||'');
+  if(!newName) return;
+  newName = newName.trim(); if(!newName) return;
+  db.collection('users').doc(currentUser.uid).update({name:newName}).then(function(){
+    currentUser.name=newName;
+    $('userName').textContent=newName;
+    toast('Đã cập nhật họ tên','success');
+  }).catch(function(e){ toast('Lỗi: '+e.message,'error'); });
+});
 $('toggleMode').addEventListener('click', function(){ setAuthMode(authMode==='login'?'signup':'login'); });
 $('toggleReset').addEventListener('click', function(){ setAuthMode('reset'); });
 $('loginPass').addEventListener('keypress', function(e){ if(e.key==='Enter'){ if(authMode==='login') doLogin(); else if(authMode==='signup') doSignup(); else doReset(); } });
 $('loginEmail').addEventListener('keypress', function(e){ if(e.key==='Enter'){ if(authMode==='login') doLogin(); else if(authMode==='signup') doSignup(); else doReset(); } });
 document.querySelectorAll('.tab').forEach(function(t){ t.addEventListener('click', function(){ switchTab(t.dataset.tab); }); });
 $('btnAddRow').addEventListener('click', addRow);
-$('searchUnit').addEventListener('input', renderUnitSelect);
-$('unitSelect').addEventListener('change', renderUnitStats);
+var s2SearchEl = $('s2Search');
+if(s2SearchEl){ s2SearchEl.addEventListener('input', renderUnitPickerS2); }
+var btnS2SelAll = $('s2SelectAll');
+if(btnS2SelAll){
+  btnS2SelAll.addEventListener('click', function(){
+    UNITS.forEach(function(u){ reportState.s2Selected[u.sol]=true; });
+    renderUnitPickerS2(); renderS2();
+  });
+}
+var btnS2Clear = $('s2Clear');
+if(btnS2Clear){
+  btnS2Clear.addEventListener('click', function(){
+    reportState.s2Selected={};
+    renderUnitPickerS2(); renderS2();
+  });
+}
 $('btnExportAll').addEventListener('click', function(){ exportPDF('all'); });
 $('btnExportSingle').addEventListener('click', function(){ exportPDF('single'); });
 $('btnExportMulti').addEventListener('click', function(){ exportPDF('multi'); });
