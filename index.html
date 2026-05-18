@@ -8,6 +8,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--brand:#005D98;--brand-dark:#003863;--brand-light:#29ABE2;--bg:#f5f7fa;--card:#fff;--text:#1f2937;--muted:#6b7280;--border:#e5e7eb;--danger:#dc2626;--warn:#f59e0b;--ok:#10b981;}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -245,6 +246,7 @@ tr.row-locked .lock-badge{display:inline-block;font-size:9px;background:#9ca3af;
         <h2>Bảng nhập liệu lỗi <span id="recCount" style="font-size:13px;color:var(--muted);font-weight:400;margin-left:8px"></span></h2>
         <div class="actions">
           <button class="btn btn-primary" id="btnAddRow">+ TẠO DỮ LIỆU</button>
+          <button class="btn" id="btnExportExcel" style="background:#10b981;color:#fff;border-color:#10b981">⬇ XUẤT EXCEL</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -1084,6 +1086,83 @@ function exportPDF(mode){
   toast('Đã mở báo cáo. Bấm In / Lưu PDF','success');
 }
 
+
+function exportExcel(){
+  if(typeof XLSX==='undefined'){ toast('Thư viện Excel chưa tải xong, thử lại','error'); return; }
+  var wb = XLSX.utils.book_new();
+  var headers = ['STT','Ngày kiểm tra','SOL','ĐVKD','Số biên bản','Nhóm lỗi','Cấp 1','Cấp 2','Mô tả lỗi','Mức độ','Điểm trừ','Đề nghị/KN','Người nhập','Phối hợp','Hạn KP','Ngày HT','Trạng thái','Bằng chứng','Hạng mục đã KP','% HT'];
+  var rows = [headers];
+  records.forEach(function(r,i){
+    var rp = getRiskAndPoints(r);
+    var han = plusOneMonth(r.ngay_kt);
+    var pct = calcPercent(r);
+    var so_bb = buildBB(r,i);
+    rows.push([
+      i+1, fmtDate(r.ngay_kt), r.sol||'', dvkdFromSol(r.sol), so_bb||'',
+      r.nhom_loi||'', (r.cap1||[]).join(', '), (r.cap2||[]).join(', '), r.mo_ta||'',
+      rp.risk||'', rp.pt!==''?rp.pt:'', r.loai||'', r.nguoi_nhap||'', r.phoi_hop||'',
+      fmtDate(han), fmtDate(r.ngay_ht), r.trang_thai||'', r.bang_chung||'',
+      (r.da_kp||[]).join(', '), pct!==''?(pct+'%'):''
+    ]);
+  });
+  var ws1 = XLSX.utils.aoa_to_sheet(rows);
+  ws1['!cols'] = [5,12,8,22,28,18,22,28,30,12,8,14,18,18,12,12,16,20,28,8].map(function(w){return {wch:w};});
+  XLSX.utils.book_append_sheet(wb, ws1, 'Dữ liệu');
+  function buildHierarchySheet(filterFn, title){
+    var agg = aggregateByHierarchy(records, filterFn);
+    var grandTotal = 0; Object.keys(agg).forEach(function(n){ grandTotal+=agg[n].total; });
+    var r = [['BÁO CÁO: '+title], [], ['Nhóm lỗi / Cấp 1 / Cấp 2', 'Số lượng', 'Tỷ lệ %']];
+    Object.keys(agg).forEach(function(nhom){
+      var n = agg[nhom];
+      var pct = grandTotal ? Math.round(n.total/grandTotal*100) : 0;
+      r.push([nhom, n.total, pct+'%']);
+      Object.keys(n.cap1).forEach(function(c1){
+        var cd = n.cap1[c1]; var p1 = n.total?Math.round(cd.total/n.total*100):0;
+        r.push(['  > '+c1, cd.total, p1+'%']);
+        Object.keys(cd.cap2).forEach(function(c2){
+          var cnt = cd.cap2[c2]; var p2 = cd.total?Math.round(cnt/cd.total*100):0;
+          r.push(['      • '+c2, cnt, p2+'%']);
+        });
+      });
+    });
+    r.push(['TỔNG', grandTotal, '100%']);
+    var ws = XLSX.utils.aoa_to_sheet(r);
+    ws['!cols'] = [{wch:50},{wch:12},{wch:12}];
+    return ws;
+  }
+  XLSX.utils.book_append_sheet(wb, buildHierarchySheet(null, 'Tổng số lượng & tỷ lệ'), 'BC Tổng');
+  XLSX.utils.book_append_sheet(wb, buildHierarchySheet(function(r){return isDoneStatus(r.trang_thai);}, 'Đã khắc phục'), 'BC Đã KP');
+  XLSX.utils.book_append_sheet(wb, buildHierarchySheet(function(r){return isNotDoneStatus(r.trang_thai);}, 'Chưa khắc phục'), 'BC Chưa KP');
+  var byUnit = {};
+  records.forEach(function(rec){
+    if(!rec.sol) return;
+    if(!byUnit[rec.sol]) byUnit[rec.sol]={kpngay:0,dakp:0,chuakp:0,dangkp:0,dungHan:0,quaHan:0,total:0};
+    var u = byUnit[rec.sol]; u.total++;
+    if(rec.trang_thai==='Khắc phục ngay') u.kpngay++;
+    if(rec.trang_thai==='Đã khắc phục') u.dakp++;
+    if(rec.trang_thai==='Chưa khắc phục') u.chuakp++;
+    if(rec.trang_thai==='Đang khắc phục') u.dangkp++;
+    if(isDoneStatus(rec.trang_thai)){ var han=plusOneMonth(rec.ngay_kt); if(rec.ngay_ht && han){ if(rec.ngay_ht<=han) u.dungHan++; else u.quaHan++; } }
+  });
+  var unitRows = [['BÁO CÁO TỔNG HỢP THEO ĐƠN VỊ'], [], ['SOL','Đơn vị','Tổng','KP ngay','Đã KP','Đang KP','Chưa KP','Đúng hạn','Quá hạn','% HT']];
+  var keys = Object.keys(byUnit).sort(function(a,b){return byUnit[b].total-byUnit[a].total;});
+  var sumT = {total:0,kpngay:0,dakp:0,chuakp:0,dangkp:0,dungHan:0,quaHan:0};
+  keys.forEach(function(sol){
+    var u = byUnit[sol]; var done=u.kpngay+u.dakp; var pct=u.total?Math.round(done/u.total*100):0;
+    unitRows.push([sol, SOL_TO_NAME[sol]||'', u.total, u.kpngay, u.dakp, u.dangkp, u.chuakp, u.dungHan, u.quaHan, pct+'%']);
+    sumT.total+=u.total; sumT.kpngay+=u.kpngay; sumT.dakp+=u.dakp; sumT.chuakp+=u.chuakp; sumT.dangkp+=u.dangkp; sumT.dungHan+=u.dungHan; sumT.quaHan+=u.quaHan;
+  });
+  var td=sumT.kpngay+sumT.dakp; var tp=sumT.total?Math.round(td/sumT.total*100):0;
+  unitRows.push(['TỔNG '+keys.length+' đơn vị','',sumT.total,sumT.kpngay,sumT.dakp,sumT.dangkp,sumT.chuakp,sumT.dungHan,sumT.quaHan,tp+'%']);
+  var ws5 = XLSX.utils.aoa_to_sheet(unitRows);
+  ws5['!cols'] = [{wch:8},{wch:26},{wch:8},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:8}];
+  XLSX.utils.book_append_sheet(wb, ws5, 'BC theo Đơn vị');
+  var now = new Date();
+  var fname = 'EIB_BaoCao_'+now.toISOString().slice(0,10)+'.xlsx';
+  XLSX.writeFile(wb, fname);
+  toast('Đã xuất: '+fname, 'success');
+}
+
 // ====== USERS ADMIN ======
 function renderUsers(){
   if(currentUser.role!=='admin') return;
@@ -1144,6 +1223,7 @@ $('loginPass').addEventListener('keypress', function(e){ if(e.key==='Enter'){ if
 $('loginEmail').addEventListener('keypress', function(e){ if(e.key==='Enter'){ if(authMode==='login') doLogin(); else if(authMode==='signup') doSignup(); else doReset(); } });
 document.querySelectorAll('.tab').forEach(function(t){ t.addEventListener('click', function(){ switchTab(t.dataset.tab); }); });
 $('btnAddRow').addEventListener('click', addRow);
+$('btnExportExcel').addEventListener('click', exportExcel);
 var s2SearchEl = $('s2Search');
 if(s2SearchEl){ s2SearchEl.addEventListener('input', renderUnitPickerS2); }
 var btnS2SelAll = $('s2SelectAll');
